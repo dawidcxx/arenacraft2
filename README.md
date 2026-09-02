@@ -47,7 +47,7 @@ Run `/migrate up` `/addrealm Arenacraft` `/adduser gm gm`
 - Development ver: `zig build -fincremental --watch -Denable-verbose-packet-log=true server-run`
 - Release ver: `zig build --release=fast server-build && ./zig-out/bin/arenacraft2`
 
-### Development guide - extras
+### extras
 
 - **Provide references cores for AI**: 
 ```
@@ -58,4 +58,7 @@ git clone git@github.com:vmangos/core.git
 git clone git@github.com:dawidcxx/arenacraft.git
 ```
 
-- Runnig tests `zig build all-test --summary all`
+- **Runnig tests**:
+```
+zig build all-test --summary all
+```

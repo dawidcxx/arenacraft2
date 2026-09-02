@@ -1,0 +1,10 @@
+.git
+.direnv
+.github
+.zig-cache
+zig-pkg
+zig-out
+manager
+docs
+*.md
+.gitignore
