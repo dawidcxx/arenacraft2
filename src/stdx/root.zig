@@ -84,39 +84,32 @@ pub fn with(
 // ─── TEST ────────────────────────────────────────────────────────────────────
 
 test "with returns a modified copy" {
-    const Point = struct { x: f32, y: f32 = 0 };
-    const p = Point{ .x = 1 };
-    const q = with(p, .y, 5);
-    try std.testing.expectEqual(@as(f32, 1), p.x);
-    try std.testing.expectEqual(@as(f32, 0), p.y);
-    try std.testing.expectEqual(@as(f32, 5), q.y);
-    const r = with(p, .x, 9);
-    try std.testing.expectEqual(@as(f32, 9), r.x);
-}
-
-test "with handles var receivers (auto-referenced to a pointer)" {
     const with_fn = with;
     const Point = struct {
         x: f32,
         y: f32 = 0,
         pub const with = with_fn;
     };
-    var p = Point{ .x = 1 };
-    const q = p.with(.y, 7);
-    try std.testing.expectEqual(@as(f32, 0), p.y);
-    try std.testing.expectEqual(@as(f32, 7), q.y);
+
+    const original = Point{ .x = 1 };
+    const updated = with(original, .y, 5);
+    try std.testing.expectEqual(@as(f32, 1), original.x);
+    try std.testing.expectEqual(@as(f32, 0), original.y);
+    try std.testing.expectEqual(@as(f32, 5), updated.y);
+    const moved = with(original, .x, 9);
+    try std.testing.expectEqual(@as(f32, 9), moved.x);
+
+    var mutable = Point{ .x = 1 };
+    const method_result = mutable.with(.y, 7);
+    try std.testing.expectEqual(@as(f32, 0), mutable.y);
+    try std.testing.expectEqual(@as(f32, 7), method_result.y);
 }
 
-test "formatHex basic" {
+test "formatHex formats bytes and empty input" {
     var buf: [256]u8 = undefined;
     const got = formatHex(&buf, &.{ 0x00, 0x08, 0xAB, 0xFF });
     try std.testing.expectEqualStrings("00 08 AB FF", got);
-}
-
-test "formatHex empty" {
-    var buf: [256]u8 = undefined;
-    const got = formatHex(&buf, &.{});
-    try std.testing.expectEqualStrings("", got);
+    try std.testing.expectEqualStrings("", formatHex(&buf, &.{}));
 }
 
 test "formatHex truncation" {
@@ -128,7 +121,9 @@ test "formatHex truncation" {
     try std.testing.expect(std.mem.endsWith(u8, got, "..."));
 }
 
-test "srp6 module loads" {
-    _ = crypto.srp6;
-    _ = srp6_session.SrpSession;
+test {
+    _ = @import("./crypto/root.zig");
+    _ = @import("./crypto/Srp6Session.zig");
+    _ = @import("./Arc.zig");
+    _ = @import("./StringList.zig");
 }

@@ -406,15 +406,3 @@ pub fn countForRealmName(pool: *pg.Pool, account_name: []const u8, realm_name: [
     if (count <= 0) return 0;
     return @intCast(@min(count, @as(i64, std.math.maxInt(u8))));
 }
-
-test "character db module exports create result" {
-    _ = CreateInput;
-    _ = CreateResult;
-    _ = EquipmentInput;
-    _ = DeleteResult;
-    _ = delete;
-    _ = CharacterIterator;
-    _ = EquipmentIterator;
-    _ = fetchEquipmentForEnum;
-    _ = countForRealmName;
-}

@@ -22,9 +22,13 @@ pub const Clock = struct {
         defer log.info("Exiting clock", .{});
 
         while (true) {
-            self.now_ms.store(timestampMs(io, true), .release);
+            self.refreshClock(io);
             try io.sleep(.fromNanoseconds(500_000), .awake);
         }
+    }
+
+    pub fn refreshClock(self: *Clock, io: std.Io) void {
+        self.now_ms.store(timestampMs(io, true), .release);
     }
 
     pub fn nowMs(self: *const Clock) u64 {
@@ -48,9 +52,3 @@ pub const Clock = struct {
         return @intCast(@max(value, 0));
     }
 };
-
-test "clock exposes monotonic and unix time" {
-    // Clock construction is intentionally integration-tested through the
-    // server build because std.Io is supplied by the process runtime.
-    _ = Clock;
-}

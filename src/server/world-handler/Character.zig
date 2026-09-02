@@ -184,9 +184,9 @@ test "character names are ASCII capitalized words" {
     const t = std.testing;
 
     try t.expect(validateCharacterName("Bob") == null);
-    try t.expectEqual(@as(u8, world.CharCreateServer.char_name_too_short), validateCharacterName("B").?);
-    try t.expectEqual(@as(u8, world.CharCreateServer.char_name_too_long), validateCharacterName("Bbbbbbbbbbbb").?);
-    try t.expectEqual(@as(u8, world.CharCreateServer.char_name_invalid_character), validateCharacterName("bob").?);
-    try t.expectEqual(@as(u8, world.CharCreateServer.char_name_invalid_character), validateCharacterName("BoB").?);
-    try t.expectEqual(@as(u8, world.CharCreateServer.char_name_invalid_character), validateCharacterName("Bób").?);
+    try t.expectEqual(@as(?u8, world.CharCreateServer.char_name_too_short), validateCharacterName("B"));
+    try t.expectEqual(@as(?u8, world.CharCreateServer.char_name_too_long), validateCharacterName("Bbbbbbbbbbbbb"));
+    try t.expectEqual(@as(?u8, world.CharCreateServer.char_name_invalid_character), validateCharacterName("bob"));
+    try t.expectEqual(@as(?u8, world.CharCreateServer.char_name_invalid_character), validateCharacterName("BoB"));
+    try t.expectEqual(@as(?u8, world.CharCreateServer.char_name_invalid_character), validateCharacterName("Bób"));
 }

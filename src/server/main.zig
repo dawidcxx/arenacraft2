@@ -82,3 +82,10 @@ fn detectRuntimeLeaks() void {
         debug_allocator.deinitWithoutLeakChecks();
     }
 }
+
+test {
+    _ = @import("./AuthServer.zig");
+    _ = @import("./ServerState.zig");
+    _ = @import("./WorldServer.zig");
+    _ = @import("./world-handler/root.zig");
+}

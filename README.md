@@ -49,7 +49,7 @@ Run `/migrate up` `/addrealm Arenacraft` `/adduser gm gm`
 
 ### Development guide - extras
 
-- ***Provide references cores for AI***: 
+- **Provide references cores for AI**: 
 ```
 mkdir ~/code/arenacraft2-reference-cores
 git clone -b 3.3.5 git@github.com:TrinityCore/TrinityCore.git
@@ -57,3 +57,5 @@ git clone git@github.com:azerothcore/azerothcore-wotlk.git
 git clone git@github.com:vmangos/core.git
 git clone git@github.com:dawidcxx/arenacraft.git
 ```
+
+- Runnig tests `zig build all-test --summary all`

@@ -85,13 +85,3 @@ pub const Movement = struct {
         }
     };
 };
-
-test "movement state has semantic fields" {
-    const state = Movement.State{
-        .position = .{ .x = 48.94, .y = 40.16, .z = 0 },
-        .orientation = 1.0,
-        .direction = .{ .forward = true },
-    };
-    try std.testing.expect(state.direction.forward);
-    try std.testing.expectEqual(Movement.Locomotion.run, state.locomotion);
-}

@@ -105,7 +105,13 @@ const sorted_races: [game_data.races.rows.len]RaceEntry = blk: {
 
 const LookupCtx = struct { key: u8 };
 
-test "race data covers all playable races" {
+test "race data covers playable race ids" {
+    for ([_]u8{ 1, 2, 3, 4, 5, 6, 7, 8, 10, 11 }) |race_id| {
+        try std.testing.expect(raceInfo(race_id) != null);
+        try std.testing.expect(languageSpellIds(race_id).len > 0);
+        try std.testing.expect(languageSkillIds(race_id).len > 0);
+    }
+
     try std.testing.expectEqual(@as(u32, 1), factionTemplate(1));
     try std.testing.expectEqual(@as(u32, 1629), factionTemplate(11));
     try std.testing.expectEqual(@as(u32, 49), displayId(1, 0));

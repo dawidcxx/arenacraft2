@@ -145,3 +145,7 @@ pub const MapEcs = struct {
         });
     }
 };
+
+test {
+    _ = @import("./EcsTest.zig");
+}

@@ -50,9 +50,12 @@ pub const StringList = struct {
 
 const t = std.testing;
 
-test "StringList: append and slice" {
+test "StringList: append, slice, and empty state" {
     var sl = StringList.init(t.allocator);
     defer sl.deinit();
+
+    try t.expectEqual(0, sl.len());
+    try t.expectEqual(0, sl.slice().len);
 
     try sl.append("hello");
     try sl.append("world");
@@ -61,14 +64,6 @@ test "StringList: append and slice" {
     try t.expectEqual(2, s.len);
     try t.expectEqualStrings("hello", s[0]);
     try t.expectEqualStrings("world", s[1]);
-}
-
-test "StringList: empty list" {
-    var sl = StringList.init(t.allocator);
-    defer sl.deinit();
-
-    try t.expectEqual(0, sl.len());
-    try t.expectEqual(0, sl.slice().len);
 }
 
 test "StringList: ownership — original freed before deinit" {
@@ -83,11 +78,4 @@ test "StringList: ownership — original freed before deinit" {
     }
 
     try t.expectEqualStrings("temp_string", sl.slice()[0]);
-}
-
-test "StringList: deinit frees everything" {
-    var sl = StringList.init(t.allocator);
-    try sl.append("test");
-    sl.deinit();
-    // No use-after-free — deinit cleans up the arena
 }

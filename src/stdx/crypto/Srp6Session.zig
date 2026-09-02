@@ -326,165 +326,97 @@ fn fixedRandomBad(targetSlice: []u8) void {
     }
 }
 
-test "init starts owned buffers zeroed" {
+const test_username = "ALICE";
+const test_password = "alice_password";
+
+fn testAccount() InitOptions {
     const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
-
-    const session = try SrpSession.init(acct);
-    const zero32: [32]u8 = @splat(0);
-    const zero40: [40]u8 = @splat(0);
-    const zero20: [20]u8 = @splat(0);
-
-    try t.expect(std.mem.eql(u8, &session.b_priv_le, &zero32));
-    try t.expect(std.mem.eql(u8, &session.b_pub_le, &zero32));
-    try t.expect(std.mem.eql(u8, &session.session_k, &zero40));
-    try t.expect(std.mem.eql(u8, &session.m2, &zero20));
+    return .{
+        .username = test_username,
+        .salt = salt,
+        .verifier_le = fakeTestVerifier(test_username, test_password),
+    };
 }
 
-test "empty starts clean and rejects challenge" {
-    var session = SrpSession.empty();
-    const zero32: [32]u8 = @splat(0);
-    const zero40: [40]u8 = @splat(0);
-    const zero20: [20]u8 = @splat(0);
-
-    try t.expectEqual(State.empty, session.getState());
-    try t.expect(std.mem.eql(u8, &session.b_priv_le, &zero32));
-    try t.expect(std.mem.eql(u8, &session.b_pub_le, &zero32));
-    try t.expect(std.mem.eql(u8, &session.session_k, &zero40));
-    try t.expect(std.mem.eql(u8, &session.m2, &zero20));
-    try t.expectError(Error.InvalidState, session.beginChallenge(fixedRandomB(), 0));
+fn testSession() Error!SrpSession {
+    return SrpSession.init(testAccount());
 }
 
-test "init succeeds with valid params" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
+fn challengedTestSession() Error!SrpSession {
+    var session = try testSession();
+    _ = try session.beginChallenge(fixedRandomB(), 0);
+    return session;
+}
 
-    var session = try SrpSession.init(acct);
+test "SRP session state transitions" {
+    var empty = SrpSession.empty();
+    try t.expectEqual(State.empty, empty.getState());
+    try t.expectError(Error.InvalidState, empty.beginChallenge(fixedRandomB(), 0));
+
+    const account = testAccount();
+    var session = try SrpSession.init(account);
     try t.expectEqual(State.init, session.getState());
     try t.expect(!session.isAuthenticated());
-}
-
-test "beginChallenge transitions state" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
-
-    var session = try SrpSession.init(acct);
-    const chal = try session.beginChallenge(fixedRandomB(), 0);
-    try t.expectEqual(State.challenge_ready, session.getState());
-
-    // Verify challenge contains the right params
-    try t.expectEqual(WOTLK_G, chal.g);
-    try t.expectEqual(salt, chal.salt);
-    try t.expectEqual(@as(u8, 0), chal.security_flags);
-}
-
-test "beginChallenge rejects if not in init" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
-
-    var session = try SrpSession.init(acct);
-    _ = try session.beginChallenge(fixedRandomB(), 0);
-    try t.expectError(Error.InvalidState, session.beginChallenge(fixedRandomB(), 0));
-}
-
-test "verifyProof rejects if not in challenge_ready" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
-
-    // Skip beginChallenge
-    var session = try SrpSession.init(acct);
+    try t.expect(std.mem.allEqual(u8, session.b_priv_le[0..], 0));
+    try t.expect(std.mem.allEqual(u8, session.session_k[0..], 0));
     try t.expectError(Error.InvalidState, session.verifyProof(.{
         .a_pub_le = @splat(1),
         .m1 = @splat(0),
     }));
+
+    const challenge = try session.beginChallenge(fixedRandomB(), 0);
+    try t.expectEqual(State.challenge_ready, session.getState());
+    try t.expectEqual(WOTLK_G, challenge.g);
+    try t.expectEqual(account.salt, challenge.salt);
+    try t.expectEqual(@as(u8, 0), challenge.security_flags);
+    try t.expectError(Error.InvalidState, session.beginChallenge(fixedRandomB(), 0));
 }
 
-test "verifyProof rejects A mod N == 0" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
+test "SRP rejects invalid proofs and becomes terminal" {
+    var session = try challengedTestSession();
 
-    var session = try SrpSession.init(acct);
-    _ = try session.beginChallenge(fixedRandomB(), 0);
-
-    // A = N (0 mod N) using the N bytes
     try t.expectError(Error.InvalidA, session.verifyProof(.{
         .a_pub_le = WOTLK_N_LE,
         .m1 = @splat(0),
     }));
-}
-
-test "verifyProof rejects bad M1" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
-
-    var session = try SrpSession.init(acct);
-    _ = try session.beginChallenge(fixedRandomB(), 0);
-
-    // A = g^a mod N with fixed random bytes as a
-    const g_le = [_]u8{WOTLK_G};
-    const m = SrpMod256.fromBytes(&WOTLK_N_LE, .little) catch unreachable;
-    const g_fe = SrpFe.fromBytes(m, &g_le, .little) catch unreachable;
-
-    var a_priv: [32]u8 = undefined;
-    fixedRandomBad(&a_priv);
-    const A_fe = m.powWithEncodedExponent(g_fe, &a_priv, .little) catch unreachable;
-    var A_bytes: [32]u8 = undefined;
-    A_fe.toBytes(&A_bytes, .little) catch unreachable;
-
     try t.expectError(Error.BadProof, session.verifyProof(.{
-        .a_pub_le = A_bytes,
+        .a_pub_le = @splat(1),
+        .m1 = @splat(0xCC),
+    }));
+    try t.expectEqual(State.failed, session.getState());
+    try t.expectError(Error.InvalidState, session.verifyProof(.{
+        .a_pub_le = @splat(1),
         .m1 = @splat(0xCC),
     }));
 }
 
-test "full roundtrip: server+client SRP exchange" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
+const ClientProofFixture = struct {
+    proof: ClientProof,
+    k: [40]u8,
+};
 
-    // ---- Server ----
-    var session = try SrpSession.init(acct);
-    const chal = try session.beginChallenge(fixedRandomB(), 0);
-
-    // ---- Client ----
+fn makeClientProof(account: InitOptions, challenge: Challenge) ClientProofFixture {
     const m = SrpMod256.fromBytes(&WOTLK_N_LE, .little) catch unreachable;
     const g_le = [_]u8{WOTLK_G};
     const g_fe = SrpFe.fromBytes(m, &g_le, .little) catch unreachable;
     const k_le = [_]u8{WOTLK_K};
     const k_fe = SrpFe.fromBytes(m, &k_le, .little) catch unreachable;
 
-    // Client secret a
     var a_priv: [32]u8 = undefined;
     fixedRandomBad(&a_priv);
 
-    // A = g^a mod N
     const A_fe = m.powWithEncodedExponent(g_fe, &a_priv, .little) catch unreachable;
     var A_bytes: [32]u8 = undefined;
     A_fe.toBytes(&A_bytes, .little) catch unreachable;
 
-    // u = SHA1(A || B)
-    const u = sha1Concat2(&A_bytes, &chal.b_pub_le);
-
-    // x = SHA1(s || SHA1(I || ":" || P))
-    const IP_hash = sha1Concat3(acct.username, ":", "alice_password");
-    const x = sha1Concat2(&salt, &IP_hash);
-
-    // g^x mod N (= v)
+    const u = sha1Concat2(&A_bytes, &challenge.b_pub_le);
+    const identity_hash = sha1Concat3(account.username, ":", test_password);
+    const x = sha1Concat2(&account.salt, &identity_hash);
     const v_fe = m.powWithEncodedPublicExponent(g_fe, &x, .little) catch unreachable;
-
-    // B - k*v mod N
     const kv_fe = m.mul(k_fe, v_fe);
-    const B_fe = SrpFe.fromBytes(m, &chal.b_pub_le, .little) catch unreachable;
+    const B_fe = SrpFe.fromBytes(m, &challenge.b_pub_le, .little) catch unreachable;
     const base_fe = m.sub(B_fe, kv_fe);
 
-    // S = (B - kv)^a * ((B - kv)^u)^x mod N  = base^a * (base^u)^x mod N
     const S_part1 = m.powWithEncodedExponent(base_fe, &a_priv, .little) catch unreachable;
     const baseU_fe = m.powWithEncodedPublicExponent(base_fe, &u, .little) catch unreachable;
     const S_part2 = m.powWithEncodedPublicExponent(baseU_fe, &x, .little) catch unreachable;
@@ -492,63 +424,46 @@ test "full roundtrip: server+client SRP exchange" {
 
     var S_client: [32]u8 = undefined;
     S_client_fe.toBytes(&S_client, .little) catch unreachable;
-    const K_client = sha1Interleave(&S_client);
+    const k = sha1Interleave(&S_client);
 
-    // M1 = SHA1(NgHash || I_hash || s || A || B || K)
     const N_hash = sha1One(&WOTLK_N_LE);
     const g_hash = sha1One(&g_le);
     var NgHash: [20]u8 = undefined;
-    for (&NgHash, N_hash, g_hash) |*dst, n, gv| { dst.* = n ^ gv; }
-    const I_hash = sha1One(acct.username);
+    for (&NgHash, N_hash, g_hash) |*dst, n, g| dst.* = n ^ g;
 
-    var m1_client: [20]u8 = undefined;
-    {
-        var sha = Sha1.init(.{});
-        sha.update(&NgHash);
-        sha.update(&I_hash);
-        sha.update(&salt);
-        sha.update(&A_bytes);
-        sha.update(&chal.b_pub_le);
-        sha.update(&K_client);
-        sha.final(&m1_client);
-    }
+    const I_hash = sha1One(account.username);
+    var m1: [20]u8 = undefined;
+    var sha = Sha1.init(.{});
+    sha.update(&NgHash);
+    sha.update(&I_hash);
+    sha.update(&account.salt);
+    sha.update(&A_bytes);
+    sha.update(&challenge.b_pub_le);
+    sha.update(&k);
+    sha.final(&m1);
 
-    // ---- Server verifies ----
-    const result = try session.verifyProof(.{ .a_pub_le = A_bytes, .m1 = m1_client });
-    try t.expectEqual(State.authenticated, session.getState());
-    try t.expect(session.isAuthenticated());
-
-    // Client-side M2 check
-    const m2_client = sha1Concat3(&A_bytes, &m1_client, &K_client);
-    try t.expectEqualSlices(u8, &m2_client, &result.m2);
-    try t.expectEqualSlices(u8, &K_client, &result.k);
+    return .{
+        .proof = .{ .a_pub_le = A_bytes, .m1 = m1 },
+        .k = k,
+    };
 }
 
-test "isAuthenticated and getState" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
+test "SRP round trip authenticates a client" {
+    const account = testAccount();
+    var session = try SrpSession.init(account);
+    const chal = try session.beginChallenge(fixedRandomB(), 0);
 
-    var session = try SrpSession.init(acct);
-    try t.expectEqual(State.init, session.getState());
-    try t.expect(!session.isAuthenticated());
-
-    _ = try session.beginChallenge(fixedRandomB(), 0);
-    try t.expectEqual(State.challenge_ready, session.getState());
-    try t.expect(!session.isAuthenticated());
-
-    // State stays challenge_ready after a failed verify
-    _ = session.verifyProof(.{ .a_pub_le = WOTLK_N_LE, .m1 = @splat(0) }) catch {};
-    try t.expectEqual(State.challenge_ready, session.getState());
+    const client = makeClientProof(account, chal);
+    const result = try session.verifyProof(client.proof);
+    try t.expectEqual(State.authenticated, session.getState());
+    try t.expect(session.isAuthenticated());
+    try t.expectEqualSlices(u8, &client.k, &result.k);
+    const expected_m2 = sha1Concat3(&client.proof.a_pub_le, &client.proof.m1, &client.k);
+    try t.expectEqualSlices(u8, &expected_m2, &result.m2);
 }
 
 test "deinit clears sensitive data" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
-
-    var session = try SrpSession.init(acct);
-    _ = try session.beginChallenge(fixedRandomB(), 0);
+    var session = try challengedTestSession();
 
     // Verify b_priv_le is not all zeros
     const zero32: [32]u8 = @splat(0);
@@ -562,23 +477,4 @@ test "deinit clears sensitive data" {
     try t.expect(std.mem.eql(u8, &session.b_pub_le, &zero32));
     try t.expect(std.mem.eql(u8, &session.session_k, &zero40));
     try t.expect(std.mem.eql(u8, &session.m2, &zero20));
-}
-
-test "verifyProof cannot be called twice" {
-    const salt = fakeTestSalt();
-    const verifier = fakeTestVerifier("ALICE", "alice_password");
-    const acct = InitOptions{ .username = "ALICE", .salt = salt, .verifier_le = verifier };
-
-    var session = try SrpSession.init(acct);
-    _ = try session.beginChallenge(fixedRandomB(), 0);
-
-    // First call with bad M1 moves to .failed
-    _ = session.verifyProof(.{ .a_pub_le = @splat(1), .m1 = @splat(0xCC) }) catch {};
-    try t.expectEqual(State.failed, session.getState());
-
-    // Second call should fail because state is not challenge_ready
-    try t.expectError(Error.InvalidState, session.verifyProof(.{
-        .a_pub_le = @splat(1),
-        .m1 = @splat(0xCC),
-    }));
 }

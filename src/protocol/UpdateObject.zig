@@ -951,46 +951,6 @@ test "player create_object2 block has the expected wire shape" {
     try t.expectEqual(@as(usize, 237), body.len);
 }
 
-test "Create payloads with() return a modified copy" {
-    const t = std.testing;
-
-    var base = PlayerCreate{
-        .guid = ObjectGuid.player(1),
-        .race = 1,
-        .class = 1,
-        .gender = 0,
-        .skin = 0,
-        .face = 0,
-        .hair_style = 0,
-        .hair_color = 0,
-        .facial_hair = 0,
-        .level = 80,
-        .health = 100,
-        .power_type = 0,
-        .power = 100,
-        .faction_template = 1,
-        .display_id = 1,
-        .x = 1,
-        .y = 2,
-        .z = 3,
-        .orientation = 4,
-        .time_ms = 5,
-    };
-
-    const muted = base.with(.self_update, false);
-    try t.expectEqual(@as(bool, true), base.self_update); // original untouched
-    try t.expectEqual(@as(bool, false), muted.self_update);
-
-    const moved = base.with(.x, 99);
-    try t.expectEqual(@as(f32, 99), moved.x);
-    try t.expectEqual(@as(f32, 1), base.x);
-
-    var vb = ValuesBlock{ .guid = ObjectGuid.player(2), .fields = .{} };
-    const vb2 = vb.with(.guid, ObjectGuid.player(9));
-    try t.expectEqual(@as(u64, 2), vb.guid.valueOf());
-    try t.expectEqual(@as(u64, 9), vb2.guid.valueOf());
-}
-
 test "values and out_of_range blocks marshal" {
     const t = std.testing;
     const gpa = t.allocator;

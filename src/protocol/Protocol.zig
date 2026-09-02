@@ -72,10 +72,11 @@ pub const world_auth = struct {
     pub const computeWorldAuthDigest = @import("./WorldAuthCrypt.zig").computeWorldAuthDigest;
 };
 
-test "protocol tests" {
+test {
     _ = @import("./AuthProtocol.zig");
     _ = @import("./WorldProtocol.zig");
     _ = @import("./ChatProtocol.zig");
     _ = @import("./WorldAuthCrypt.zig");
     _ = @import("./Movement.zig");
+    _ = @import("./UpdateObject.zig");
 }

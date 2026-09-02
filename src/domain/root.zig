@@ -13,19 +13,19 @@ pub const Movement = @import("./Movement.zig").Movement;
 pub const Character = @import("./Character.zig").Character;
 pub const Player = @import("./Player.zig").Player;
 
-test "domain module" {
-    _ = character_create;
-    _ = ObjectGuid;
-    _ = items;
-    _ = equipment;
-    _ = races;
-    _ = ClassId;
-    _ = PowerTypeId;
-    _ = Realm;
-    _ = MapId;
-    _ = Session;
-    _ = TimeSyncState;
-    _ = Movement;
-    _ = Character;
-    _ = Player;
+test {
+    _ = @import("CharacterCreate.zig");
+    _ = @import("ObjectGuid.zig");
+    _ = @import("Items.zig");
+    _ = @import("Equipment.zig");
+    _ = @import("Races.zig");
+    _ = @import("ClassId.zig");
+    _ = @import("PowerTypeId.zig");
+    _ = @import("Realm.zig");
+    _ = @import("MapId.zig");
+    _ = @import("Session.zig");
+    _ = @import("TimeSyncState.zig");
+    _ = @import("Movement.zig");
+    _ = @import("Character.zig");
+    _ = @import("Player.zig");
 }

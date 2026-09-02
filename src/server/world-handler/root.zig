@@ -5,11 +5,10 @@ pub const movement = @import("Movement.zig");
 pub const chat = @import("Chat.zig");
 pub const login = @import("Login.zig");
 
-test "world handler modules" {
-    _ = Session;
-    _ = WorldServerConnection;
-    _ = character;
-    _ = movement;
-    _ = chat;
-    _ = login;
+test {
+    _ = @import("WorldServerConnection.zig");
+    _ = @import("Character.zig");
+    _ = @import("Movement.zig");
+    _ = @import("Chat.zig");
+    _ = @import("Login.zig");
 }

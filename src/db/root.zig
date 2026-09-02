@@ -19,8 +19,8 @@ pub const Error = error{
     InvalidUUID,
 };
 
-test "db module" {
-    _ = auth;
-    _ = char;
-    _ = util;
+test {
+    _ = @import("auth.zig");
+    _ = @import("char.zig");
+    _ = @import("util.zig");
 }
