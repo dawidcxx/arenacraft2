@@ -1,0 +1,31 @@
+name: arenacraft_deps
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: arenacraft
+      POSTGRES_PASSWORD: arenacraft
+      POSTGRES_DB: arenacraft
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arenacraft -d arenacraft"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer:latest
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+      ADMINER_DESIGN: flat
+    ports:
+      - "6664:8080"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

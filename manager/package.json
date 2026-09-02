@@ -1,0 +1,22 @@
+{
+  "name": "arenacraft-manager",
+  "module": "src/index.tsx",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun --env-file=./.env.local run src/index.tsx",
+    "dev": "bun --sql-preconnect --watch --env-file=./.env.local run src/index.tsx",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.16",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@needle-di/core": "^1.1.2",
+    "@opentui/core": "^0.3.0",
+    "@opentui/react": "^0.3.0",
+    "react": "^19.2.6"
+  }
+}

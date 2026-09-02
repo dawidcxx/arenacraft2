@@ -1,0 +1,12 @@
+[
+  { "race_id": 1, "faction_template": 1, "male_display_id": 49, "female_display_id": 50, "name": "human" },
+  { "race_id": 2, "faction_template": 2, "male_display_id": 51, "female_display_id": 52, "name": "orc" },
+  { "race_id": 3, "faction_template": 3, "male_display_id": 53, "female_display_id": 54, "name": "dwarf" },
+  { "race_id": 4, "faction_template": 4, "male_display_id": 55, "female_display_id": 56, "name": "night elf" },
+  { "race_id": 5, "faction_template": 5, "male_display_id": 57, "female_display_id": 58, "name": "undead" },
+  { "race_id": 6, "faction_template": 6, "male_display_id": 59, "female_display_id": 60, "name": "tauren" },
+  { "race_id": 7, "faction_template": 115, "male_display_id": 1563, "female_display_id": 1564, "name": "gnome" },
+  { "race_id": 8, "faction_template": 116, "male_display_id": 1478, "female_display_id": 1479, "name": "troll" },
+  { "race_id": 10, "faction_template": 1610, "male_display_id": 15476, "female_display_id": 15475, "name": "blood elf" },
+  { "race_id": 11, "faction_template": 1629, "male_display_id": 16125, "female_display_id": 16126, "name": "draenei" }
+]

@@ -1,0 +1,38 @@
+const std = @import("std");
+const ObjectGuid = @import("./ObjectGuid.zig").ObjectGuid;
+const Session = @import("./Session.zig").Session;
+const ClassId = @import("./ClassId.zig").ClassId;
+const MapId = @import("./MapId.zig").MapId;
+const Movement = @import("./Movement.zig").Movement;
+
+pub const Character = struct {
+    pub const max_name_len = 12;
+
+    guid: ObjectGuid,
+    name: [max_name_len + 1]u8 = .{0} ** (max_name_len + 1),
+
+    map_id: MapId,
+
+    class_id: ClassId,
+    race_id: u8,
+    gender: u8,
+    skin: u8,
+    face: u8,
+    hair_style: u8,
+    hair_color: u8,
+    facial_hair: u8,
+    level: u8,
+    visible_items: [19]u32 = .{0} ** 19,
+
+    movement: Movement.State,
+
+    const Self = @This();
+
+    pub fn nameSlice(self: *const Self) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn update(self: *Self, character: Character) void {
+        self.* = character;
+    }
+};
