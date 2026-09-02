@@ -1,12 +1,18 @@
 const std = @import("std");
 
 var STDX_MOD: ?*std.Build.Module = null;
+var STDX_TEST_STEP: *std.Build.Step = undefined;
 var ECS_MOD: ?*std.Build.Module = null;
 var PROTOCOL_MOD: ?*std.Build.Module = null;
+var PROTOCOL_TEST_STEP: *std.Build.Step = undefined;
 var DB_MOD: ?*std.Build.Module = null;
+var DB_TEST_STEP: *std.Build.Step = undefined;
 var DOMAIN_MOD: ?*std.Build.Module = null;
+var DOMAIN_TEST_STEP: *std.Build.Step = undefined;
 var SERVER_MOD: ?*std.Build.Module = null;
+var SERVER_TEST_STEP: *std.Build.Step = undefined;
 var WORLD_MOD: ?*std.Build.Module = null;
+var WORLD_TEST_STEP: *std.Build.Step = undefined;
 var OPTIONS: ?*std.Build.Step.Options = null;
 
 pub fn build(b: *std.Build) !void {
@@ -14,21 +20,21 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     addOptions(b);
-    const stdx_test = try addStdx(b, target, optimize);
+    try addStdx(b, target, optimize);
     try addEcs(b, target, optimize);
-    const domain_test = try addDomain(b, target, optimize);
-    const protocol_test = try addProtocol(b, target, optimize);
-    const db_test = try addDb(b, target, optimize);
-    const world_test = try addWorld(b, target, optimize);
-    const server_test = try addServer(b, target, optimize);
+    try addDomain(b, target, optimize);
+    try addProtocol(b, target, optimize);
+    try addDb(b, target, optimize);
+    try addWorld(b, target, optimize);
+    try addServer(b, target, optimize);
 
     const all_test = b.step("all-test", "Run all module tests");
-    all_test.dependOn(stdx_test);
-    all_test.dependOn(domain_test);
-    all_test.dependOn(protocol_test);
-    all_test.dependOn(db_test);
-    all_test.dependOn(world_test);
-    all_test.dependOn(server_test);
+    all_test.dependOn(STDX_TEST_STEP);
+    all_test.dependOn(DOMAIN_TEST_STEP);
+    all_test.dependOn(PROTOCOL_TEST_STEP);
+    all_test.dependOn(DB_TEST_STEP);
+    all_test.dependOn(WORLD_TEST_STEP);
+    all_test.dependOn(SERVER_TEST_STEP);
 }
 
 /// Declares shared build options once and exposes them to every module via
@@ -57,7 +63,7 @@ fn addDomain(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-) !*std.Build.Step {
+) !void {
     const game_data_mod = try generateGameDataModule(b);
     const stdx_mod = STDX_MOD orelse return error.MissingModule;
 
@@ -77,9 +83,8 @@ fn addDomain(
     if (b.args) |args| {
         run.addArgs(args);
     }
-    const step = b.step("domain-test", "Run domain tests");
-    step.dependOn(&run.step);
-    return step;
+    DOMAIN_TEST_STEP = b.step("domain-test", "Run domain tests");
+    DOMAIN_TEST_STEP.dependOn(&run.step);
 }
 
 const GameDataColumn = struct {
@@ -250,7 +255,7 @@ fn addDb(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-) !*std.Build.Step {
+) !void {
     const pg_mod = b.dependency("pg", .{ .target = target, .optimize = optimize }).module("pg");
     const domain_mod = DOMAIN_MOD orelse return error.MissingModule;
 
@@ -270,16 +275,15 @@ fn addDb(
     if (b.args) |args| {
         run.addArgs(args);
     }
-    const step = b.step("db-test", "Run db tests");
-    step.dependOn(&run.step);
-    return step;
+    DB_TEST_STEP = b.step("db-test", "Run db tests");
+    DB_TEST_STEP.dependOn(&run.step);
 }
 
 fn addWorld(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-) !*std.Build.Step {
+) !void {
     const stdx_mod = STDX_MOD orelse return error.MissingModule;
     const ecs_mod = ECS_MOD orelse return error.MissingModule;
     const domain_mod = DOMAIN_MOD orelse return error.MissingModule;
@@ -306,16 +310,15 @@ fn addWorld(
     if (b.args) |args| {
         run.addArgs(args);
     }
-    const step = b.step("world-test", "Run world tests");
-    step.dependOn(&run.step);
-    return step;
+    WORLD_TEST_STEP = b.step("world-test", "Run world tests");
+    WORLD_TEST_STEP.dependOn(&run.step);
 }
 
 fn addStdx(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-) !*std.Build.Step {
+) !void {
     const mod = b.createModule(.{
         .root_source_file = b.path("src/stdx/root.zig"),
         .target = target,
@@ -329,16 +332,15 @@ fn addStdx(
     if (b.args) |args| {
         run.addArgs(args);
     }
-    const step = b.step("stdx-test", "Run stdx tests");
-    step.dependOn(&run.step);
-    return step;
+    STDX_TEST_STEP = b.step("stdx-test", "Run stdx tests");
+    STDX_TEST_STEP.dependOn(&run.step);
 }
 
 fn addProtocol(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-) !*std.Build.Step {
+) !void {
     const domain_mod = DOMAIN_MOD orelse return error.MissingModule;
     const stdx_mod = STDX_MOD orelse return error.MissingModule;
     const options = OPTIONS orelse return error.MissingModule;
@@ -360,16 +362,15 @@ fn addProtocol(
     if (b.args) |args| {
         run.addArgs(args);
     }
-    const step = b.step("protocol-test", "Run protocol tests");
-    step.dependOn(&run.step);
-    return step;
+    PROTOCOL_TEST_STEP = b.step("protocol-test", "Run protocol tests");
+    PROTOCOL_TEST_STEP.dependOn(&run.step);
 }
 
 fn addServer(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
-) !*std.Build.Step {
+) !void {
     const stdx_mod = STDX_MOD orelse return error.MissingModule;
     const protocol_mod = PROTOCOL_MOD orelse return error.MissingModule;
     const db_mod = DB_MOD orelse return error.MissingModule;
@@ -416,7 +417,6 @@ fn addServer(
     if (b.args) |args| {
         test_run.addArgs(args);
     }
-    const test_step = b.step("server-test", "Run server tests");
-    test_step.dependOn(&test_run.step);
-    return test_step;
+    SERVER_TEST_STEP = b.step("server-test", "Run server tests");
+    SERVER_TEST_STEP.dependOn(&test_run.step);
 }
