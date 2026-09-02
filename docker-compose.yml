@@ -27,5 +27,18 @@ services:
     depends_on:
       - db
 
+  app:
+    image: ghcr.io/dawidcxx/arenacraft2:latest
+    profiles:
+      - full
+    environment:
+      DATABASE_URL: postgresql://arenacraft:arenacraft@db:5432/arenacraft
+    ports:
+      - "3724:3724"
+      - "8085:8085"
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
