@@ -2,6 +2,8 @@
 
 WoW inspired PVP only MMO core, written in zig
 
+![image showcasting the development](./docs/README_HERO_IMG.png)
+
 # Structure overview
 
 ```
