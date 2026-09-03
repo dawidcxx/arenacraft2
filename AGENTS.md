@@ -34,38 +34,12 @@ Key directories:
 - Type-check manager: `cd manager && bun run check`.
 - Run manager: `cd manager && bun install && bun dev`.
 
-## Database Workflow
+## Extra AI instructions 
 
-- Default local database URL is `postgresql://arenacraft:arenacraft@127.0.0.1:5432/arenacraft`.
-- The Nix shell exports `DATABASE_URL` for the Zig server.
-- The manager scripts read `manager/.env.local`; use `manager/.env.example` as the template.
-- Initialize a fresh database through the manager with `/migrate`, `/addrealm Arenacraft`, and `/adduser gm gm`.
-- Add schema changes as new SQL files in `manager/src/db/migrations/sql/` and wire them through `manager/src/db/migrations/index.ts`.
+- Only use reference cores for protocol level, data representation issues. Azerothcore in particular has awful coding pratices in it, never bias your implementation using it though u can use it to extract protocol information
+- **NEVER** bias zig code implementation using a existing .cpp solution
+- VMAngos core contains better architecture coding style, cleaner logic encoding, Azerothcore must only be used for be used for its protocol information
+- Avoid AzerothCore it's badly coded
+- Be efficient on tokens, feel free to bail out early and prompt the user for input
+- Assume the user is a expert developer that can guide you with architectural decisions
 
-## Zig Conventions
-
-- Keep modules separated by purpose. Protocol code should not grow server or DB behavior. Domain code should remain mostly leaf/value logic.
-- Root module files re-export public API and include import-only `test { ... }` blocks so nested tests are discovered. Update the relevant root file when adding new Zig files.
-- Prefer explicit allocator ownership and `defer` cleanup. Tests should catch ownership/lifetime changes when possible.
-- Use existing build steps instead of ad-hoc `zig test` commands unless there is a specific reason.
-- Do not edit generated Zig game-data output. Edit `src/game_data/*.json`; `build.zig` regenerates the module.
-- For protocol changes, add or update wire-shape tests near the codec being changed.
-
-## Manager Conventions
-
-- Keep command behavior in `manager/src/commands/rootCommands.ts` and service behavior in `manager/src/db/*Service.ts` or other focused service files.
-- Preserve strict TypeScript settings. Verify manager changes with `bun run check`.
-- The OpenTUI UI is terminal-rendered React, not a browser app. Avoid DOM/browser APIs unless the runtime supports them.
-
-## Verification Expectations
-
-- For Zig-only changes, run the narrow module test first, then `zig build all-test --summary all` when practical.
-- For manager changes, run `cd manager && bun run check`.
-- For database or end-to-end server changes, start Postgres and run the manager migration flow before relying on server behavior.
-- If full verification is skipped because it is slow or requires external services, state exactly what was and was not run.
-
-## Files To Avoid
-
-- Do not modify `.zig-cache/`, `zig-out/`, `manager/node_modules/`, `.direnv/`, or generated build outputs.
-- Do not commit local secrets such as `manager/.env.local`.
-- Do not rewrite lockfiles unless dependency changes require it.
