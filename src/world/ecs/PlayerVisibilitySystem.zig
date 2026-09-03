@@ -8,10 +8,6 @@ const EcsEventType = @import("./EcsInput.zig").EcsEventType;
 const component = @import("EcsComponent.zig");
 const MapEcs = @import("MapEcs.zig").MapEcs;
 
-// Placeholders carried over from the pre-ECS login path.
-const placeholder_health: u32 = 100;
-const placeholder_power: u32 = 100;
-
 pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     var registry = map_ecs.registry;
 
@@ -81,6 +77,7 @@ fn playerEntityToPlayerCreate(reg: *ecs.Registry, player: ecs.Entity, time_ms: u
     const appearance = reg.getConst(component.Appearance, player);
     const position = reg.getConst(component.Position, player);
     const orientation = reg.getConst(component.Orientation, player);
+    const stats = reg.getConst(component.Stats, player);
 
     return .{
         .guid = guid.value,
@@ -97,12 +94,16 @@ fn playerEntityToPlayerCreate(reg: *ecs.Registry, player: ecs.Entity, time_ms: u
         .hair_color = appearance.hair_color,
         .facial_hair = appearance.facial_hair,
         .level = level.value,
-        .health = placeholder_health,
+        .health = stats.derived.max_health,
         .power_type = appearance.class_id.powerTypeId().valueOf(),
-        .power = placeholder_power,
+        .power = stats.derived.max_power,
+        .base_stats = stats.derived.base_stats,
+        .item_stats = stats.derived.item_stats,
+        .armor = stats.derived.armor,
         .faction_template = domain.races.factionTemplate(appearance.race_id),
         .display_id = domain.races.displayId(appearance.race_id, appearance.gender),
         .visible_items = reg.getConst(component.VisibleItems, player).entries,
+        .item_guids = reg.getConst(component.VisibleItems, player).guids,
         .language_skill_ids = domain.races.languageSkillIds(appearance.race_id),
         .time_ms = time_ms,
         .self_update = false,

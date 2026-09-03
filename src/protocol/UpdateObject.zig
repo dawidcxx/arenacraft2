@@ -343,6 +343,11 @@ pub const UnitField = enum(u16) {
     power_1 = 25,
     max_health = 32,
     max_power_1 = 33,
+    stat_0 = 84,
+    pos_stat_0 = 89,
+    resistances = 99,
+    base_mana = 120,
+    base_health = 121,
     level = 54,
     faction_template = 55,
     display_id = 67,
@@ -360,6 +365,23 @@ pub const UnitField = enum(u16) {
     pub fn maxPower(power_type: u8) UnitField {
         return @enumFromInt(@intFromEnum(UnitField.max_power_1) + power_type);
     }
+
+    /// UNIT_FIELD_STAT0..4: strength, agility, stamina, intellect, spirit.
+    /// Owner-visible; the character pane shows base + pos stat.
+    pub fn stat(index: u8) UnitField {
+        return @enumFromInt(@intFromEnum(UnitField.stat_0) + index);
+    }
+
+    /// UNIT_FIELD_POSSTAT0..4: positive stat bonuses from items.
+    pub fn posStat(index: u8) UnitField {
+        return @enumFromInt(@intFromEnum(UnitField.pos_stat_0) + index);
+    }
+
+    /// UNIT_FIELD_RESISTANCES: armor, holy, fire, nature, frost, shadow,
+    /// arcane. Owner-visible.
+    pub fn resistance(index: u8) UnitField {
+        return @enumFromInt(@intFromEnum(UnitField.resistances) + index);
+    }
 };
 
 pub const PlayerField = enum(u16) {
@@ -371,6 +393,10 @@ pub const PlayerField = enum(u16) {
     /// Gender the client uses to pick the model (byte 0); other bytes stay zero.
     gender = 155,
     visible_item_1_entry_id = 283,
+    /// PLAYER_FIELD_INV_SLOT_HEAD: 23 LONGs of item instance guids (19
+    /// equipment + 4 bag slots). Owner-private. Each guid spans two
+    /// consecutive fields, low then high word.
+    inv_slot_head = 324,
     /// Skill book the client uses to build the skill pane and decide which
     /// languages are available for chat. Every skill line is 3 consecutive
     /// fields holding (id,step), (value,max), bonus; use skillBook() to
@@ -382,6 +408,16 @@ pub const PlayerField = enum(u16) {
     /// PLAYER_VISIBLE_ITEM_1_ENTRY shifted by equipment slot (0..18).
     pub fn visibleItemEntry(slot: u8) PlayerField {
         return @enumFromInt(@intFromEnum(PlayerField.visible_item_1_entry_id) + @as(u16, slot) * 2);
+    }
+
+    /// Low word of the item instance guid in equipment slot (0..18).
+    pub fn invSlotLow(slot: u8) PlayerField {
+        return @enumFromInt(@intFromEnum(PlayerField.inv_slot_head) + @as(u16, slot) * 2);
+    }
+
+    /// High word of the item instance guid in equipment slot (0..18).
+    pub fn invSlotHigh(slot: u8) PlayerField {
+        return @enumFromInt(@intFromEnum(PlayerField.inv_slot_head) + @as(u16, slot) * 2 + 1);
     }
 
     /// Field index of the given skill-book slot and sub-field (see
@@ -543,9 +579,22 @@ pub const PlayerCreate = struct {
     health: u32,
     power_type: u8,
     power: u32,
+    /// Base attributes (str, agi, sta, int, spi); owner-visible fields.
+    base_stats: [5]u32 = .{0} ** 5,
+    /// Item stat bonuses added on top of `base_stats`; owner-visible fields.
+    item_stats: [5]u32 = .{0} ** 5,
+    /// Armor value (UNIT_FIELD_RESISTANCES[0]); owner-visible.
+    armor: u32 = 0,
+    /// Raw power pool floor the client renders alongside max power.
+    base_mana: u32 = domain.character_stats.base_mana,
+    /// Raw health pool floor the client renders alongside max health.
+    base_health: u32 = domain.character_stats.base_health,
     faction_template: u32,
     display_id: u32,
     visible_items: [19]u32 = .{0} ** 19,
+    /// Item instance guids per equipped slot for the paper doll
+    /// (PLAYER_FIELD_INV_SLOT_HEAD); owner-visible, bag slots stay zero.
+    item_guids: [19]u64 = .{0} ** 19,
     language_skill_ids: []const u16 = &.{},
     x: f32,
     y: f32,
@@ -592,15 +641,37 @@ pub const PlayerCreate = struct {
         fields.set(UnitField.faction_template, self.faction_template);
         fields.set(UnitField.display_id, self.display_id);
         fields.set(UnitField.native_display_id, self.display_id);
+        // UNIT_FIELD_BASE_MANA is PUBLIC; the client only renders a mana
+        // pool for mana users.
+        if (self.power_type == @intFromEnum(domain.PowerTypeId.mana)) {
+            fields.set(UnitField.base_mana, self.base_mana);
+        }
         fields.set(UnitField.bytes_2, unit_bytes_2_pvp);
         fields.set(PlayerField.appearance, packedBytes(self.skin, self.face, self.hair_style, self.hair_color));
         fields.set(PlayerField.facial_hair, self.facial_hair);
         fields.set(PlayerField.gender, self.gender);
         if (self.self_update) {
+            // Owner-private fields: raw attributes, item bonuses, armor and
+            // the health floor feed the character pane.
+            for (self.base_stats, 0..) |value, i| {
+                fields.set(UnitField.stat(@intCast(i)), value);
+            }
+            for (self.item_stats, 0..) |value, i| {
+                fields.set(UnitField.posStat(@intCast(i)), value);
+            }
+            fields.set(UnitField.resistance(0), self.armor);
+            fields.set(UnitField.base_health, self.base_health);
             for (self.language_skill_ids, 0..) |skill_id, slot| {
                 fields.set(PlayerField.skillBook(@intCast(slot), .id_step), packedU16(skill_id, 0));
                 fields.set(PlayerField.skillBook(@intCast(slot), .value_max), packedU16(300, 300));
                 fields.set(PlayerField.skillBook(@intCast(slot), .bonus), 0);
+            }
+            // Paper doll slot occupancy; the bag slots (19..22) stay zero.
+            for (self.item_guids, 0..) |guid, slot| {
+                if (guid != 0) {
+                    fields.set(PlayerField.invSlotLow(@intCast(slot)), @truncate(guid));
+                    fields.set(PlayerField.invSlotHigh(@intCast(slot)), @truncate(guid >> 32));
+                }
             }
         }
         for (self.visible_items, 0..) |entry, slot| {
@@ -879,8 +950,18 @@ test "field dictionaries resolve to the wire indices" {
     try t.expectEqual(@as(u16, 31), @intFromEnum(UnitField.power(6)));
     try t.expectEqual(@as(u16, 33), @intFromEnum(UnitField.maxPower(0)));
     try t.expectEqual(@as(u16, 39), @intFromEnum(UnitField.maxPower(6)));
+    try t.expectEqual(@as(u16, 84), @intFromEnum(UnitField.stat(0)));
+    try t.expectEqual(@as(u16, 88), @intFromEnum(UnitField.stat(4)));
+    try t.expectEqual(@as(u16, 89), @intFromEnum(UnitField.posStat(0)));
+    try t.expectEqual(@as(u16, 93), @intFromEnum(UnitField.posStat(4)));
+    try t.expectEqual(@as(u16, 99), @intFromEnum(UnitField.resistance(0)));
+    try t.expectEqual(@as(u16, 120), @intFromEnum(UnitField.base_mana));
+    try t.expectEqual(@as(u16, 121), @intFromEnum(UnitField.base_health));
     try t.expectEqual(@as(u16, 283), @intFromEnum(PlayerField.visible_item_1_entry_id));
     try t.expectEqual(@as(u16, 285), @intFromEnum(PlayerField.visibleItemEntry(1)));
+    try t.expectEqual(@as(u16, 324), @intFromEnum(PlayerField.inv_slot_head));
+    try t.expectEqual(@as(u16, 332), @intFromEnum(PlayerField.invSlotLow(4)));
+    try t.expectEqual(@as(u16, 333), @intFromEnum(PlayerField.invSlotHigh(4)));
     try t.expectEqual(@as(u16, 636), @intFromEnum(PlayerField.skillBook(0, .id_step)));
     try t.expectEqual(@as(u16, 639), @intFromEnum(PlayerField.skillBook(1, .id_step)));
     try t.expectEqual(@as(u32, 0x19), ObjectTypeId.player.mask());
@@ -894,6 +975,8 @@ test "player create_object2 block has the expected wire shape" {
 
     var pkt = try UpdateObject.init(gpa);
     defer pkt.deinit(gpa);
+    var item_guids = [_]u64{0} ** 19;
+    item_guids[4] = 0x0000_4000_0000_0024; // character 1, slot 4
     try pkt.add(gpa, .{ .create_object2 = .{ .player_create = .{
         .guid = ObjectGuid.player(1),
         .race = 1,
@@ -908,9 +991,13 @@ test "player create_object2 block has the expected wire shape" {
         .health = 100,
         .power_type = 0,
         .power = 100,
+        .base_stats = .{ 11, 12, 13, 14, 15 },
+        .item_stats = .{ 0, 0, 30, 18, 0 },
+        .armor = 360,
         .faction_template = 1,
         .display_id = 1,
         .language_skill_ids = &.{98},
+        .item_guids = item_guids,
         .x = 1,
         .y = 2,
         .z = 3,
@@ -937,18 +1024,32 @@ test "player create_object2 block has the expected wire shape" {
     try t.expectEqual(@as(u32, 0xAABBCCDD), std.mem.readInt(u32, body[16..20], .little));
 
     // Head is 76 bytes (guid/type/flags + 30-byte MovementInfo + 9 speeds);
-    // fields follow: 20 blocks (highest field 638), 20 masks, 20 values.
+    // fields follow: 20 blocks (highest field 638), 20 masks, 35 values.
     try t.expectEqual(@as(u8, 20), body[76]);
     try t.expectEqual(@as(u32, 0x03800017), std.mem.readInt(u32, body[77..81], .little)); // bits 0,1,2,4,23,24,25
-    const values_start = 77 + 80;
+    try t.expectEqual(@as(u32, 0x00C00003), std.mem.readInt(u32, body[81..85], .little)); // 32,33,54,55
+    try t.expectEqual(@as(u32, 0x3FF00018), std.mem.readInt(u32, body[85..89], .little)); // 67,68,stats 84-93
+    try t.expectEqual(@as(u32, 0x07000008), std.mem.readInt(u32, body[89..93], .little)); // 99,120,121,122
+    try t.expectEqual(@as(u32, 0x0E000000), std.mem.readInt(u32, body[93..97], .little)); // 153,154,155
+    try t.expectEqual(@as(u32, 0x3000), std.mem.readInt(u32, body[117..121], .little)); // inv slots 332,333
+    try t.expectEqual(@as(u32, 0x70000000), std.mem.readInt(u32, body[153..157], .little)); // 636,637,638
+    const values_start = 157;
     try t.expectEqual(@as(u32, 1), std.mem.readInt(u32, body[values_start..][0..4], .little)); // guid
     try t.expectEqual(@as(u32, 100), std.mem.readInt(u32, body[values_start + 20 ..][0..4], .little)); // health
     try t.expectEqual(@as(u32, 80), std.mem.readInt(u32, body[values_start + 36 ..][0..4], .little)); // level
-    try t.expectEqual(@as(u32, 0x100), std.mem.readInt(u32, body[values_start + 52 ..][0..4], .little)); // bytes_2 pvp
-    try t.expectEqual(@as(u32, packedU16(98, 0)), std.mem.readInt(u32, body[values_start + 68 ..][0..4], .little));
-    try t.expectEqual(@as(u32, packedU16(300, 300)), std.mem.readInt(u32, body[values_start + 72 ..][0..4], .little));
-    try t.expectEqual(@as(u32, 0), std.mem.readInt(u32, body[values_start + 76 ..][0..4], .little));
-    try t.expectEqual(@as(usize, 237), body.len);
+    try t.expectEqual(@as(u32, 11), std.mem.readInt(u32, body[values_start + 52 ..][0..4], .little)); // stat0
+    try t.expectEqual(@as(u32, 13), std.mem.readInt(u32, body[values_start + 60 ..][0..4], .little)); // stat2 (stamina)
+    try t.expectEqual(@as(u32, 30), std.mem.readInt(u32, body[values_start + 80 ..][0..4], .little)); // posstat2
+    try t.expectEqual(@as(u32, 360), std.mem.readInt(u32, body[values_start + 92 ..][0..4], .little)); // armor
+    try t.expectEqual(@as(u32, 1000), std.mem.readInt(u32, body[values_start + 96 ..][0..4], .little)); // base_mana
+    try t.expectEqual(@as(u32, 1000), std.mem.readInt(u32, body[values_start + 100 ..][0..4], .little)); // base_health
+    try t.expectEqual(@as(u32, 0x100), std.mem.readInt(u32, body[values_start + 104 ..][0..4], .little)); // bytes_2 pvp
+    try t.expectEqual(@as(u32, 0x24), std.mem.readInt(u32, body[values_start + 120 ..][0..4], .little)); // inv slot 4 low
+    try t.expectEqual(@as(u32, 0x4000), std.mem.readInt(u32, body[values_start + 124 ..][0..4], .little)); // inv slot 4 high
+    try t.expectEqual(@as(u32, packedU16(98, 0)), std.mem.readInt(u32, body[values_start + 128 ..][0..4], .little));
+    try t.expectEqual(@as(u32, packedU16(300, 300)), std.mem.readInt(u32, body[values_start + 132 ..][0..4], .little));
+    try t.expectEqual(@as(u32, 0), std.mem.readInt(u32, body[values_start + 136 ..][0..4], .little));
+    try t.expectEqual(@as(usize, 297), body.len);
 }
 
 test "values and out_of_range blocks marshal" {

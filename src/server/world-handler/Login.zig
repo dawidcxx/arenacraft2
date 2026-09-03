@@ -33,12 +33,21 @@ pub fn handlePlayerLogin(
     character.movement.orientation = initial_orientation;
 
     {
+        var equipped: [domain.equipment.EquipmentSlot.count]?domain.items.ItemDef =
+            .{null} ** domain.equipment.EquipmentSlot.count;
         var rows = try db.char.fetchCharacterEquipment(pool, session.account_id, session.active_realm.id, character_guid);
         defer rows.deinit();
         while (try rows.next()) |equip| {
             const slot = equip.slot();
-            character.visible_items[slot] = equip.itemEntry();
+            const entry = equip.itemEntry();
+            character.visible_items[slot] = entry;
+            character.item_guids[slot] = domain.equipment.equippedInstanceGuid(character_guid, @intCast(slot)).valueOf();
+            equipped[slot] = domain.items.findItem(entry);
+            if (equipped[slot] == null) {
+                std.log.debug("login: equipped item entry={d} missing from game data (guid={d} slot={d}); stat contribution skipped", .{ entry, character_guid.valueOf(), slot });
+            }
         }
+        character.derived = domain.character_stats.derive(character.class_id.powerTypeId(), &equipped);
     }
 
     try world_sim.connectPlayer(io, .{

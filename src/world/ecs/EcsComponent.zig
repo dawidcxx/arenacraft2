@@ -25,9 +25,11 @@ pub const Appearance = struct {
     facial_hair: u8,
 };
 
-/// Mirrors domain.Character.visible_items.
-pub const VisibleItems = struct { entries: [19]u32 };
+/// Mirrors domain.Character.visible_items (+ per-slot instance guids).
+pub const VisibleItems = struct { entries: [19]u32, guids: [19]u64 = .{0} ** 19 };
 pub const Level = struct { value: u8 };
+/// Mirrors domain.Character.derived: stats computed from equipped items.
+pub const Stats = struct { derived: domain.character_stats.DerivedStats };
 
 /// Transient outbound packet awaiting delivery. The entity is destroyed by
 /// OutboundPacketSystem once every recipient got the body.

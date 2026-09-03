@@ -4,6 +4,7 @@ const Session = @import("./Session.zig").Session;
 const ClassId = @import("./ClassId.zig").ClassId;
 const MapId = @import("./MapId.zig").MapId;
 const Movement = @import("./Movement.zig").Movement;
+const DerivedStats = @import("./CharacterStats.zig").DerivedStats;
 
 pub const Character = struct {
     pub const max_name_len = 12;
@@ -23,6 +24,12 @@ pub const Character = struct {
     facial_hair: u8,
     level: u8,
     visible_items: [19]u32 = .{0} ** 19,
+    /// Synthetic item instance guids per equipped slot (see
+    /// Equipment.equippedInstanceGuid); zero when the slot is empty.
+    item_guids: [19]u64 = .{0} ** 19,
+    /// Stats derived from equipped items at login; base values until
+    /// derived. See CharacterStats.
+    derived: DerivedStats = .{},
 
     movement: Movement.State,
 

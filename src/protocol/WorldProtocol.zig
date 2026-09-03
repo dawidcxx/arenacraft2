@@ -13,6 +13,8 @@ pub const Opcode = enum(u32) {
     cmsg_char_delete = 0x038,
     cmsg_name_query = 0x050,
     smsg_name_query_response = 0x051,
+    cmsg_item_query_single = 0x056,
+    smsg_item_query_single_response = 0x058,
     cmsg_messagechat = 0x095,
     smsg_messagechat = 0x096,
     smsg_char_create = 0x03A,
@@ -202,6 +204,168 @@ pub const NameQueryResponseServer = struct {
         return buf;
     }
 };
+
+// ─── CMSG_ITEM_QUERY_SINGLE (opcode 0x056) ─────────────────────────────────
+
+pub const ItemQuerySingleClient = struct {
+    entry: u32,
+
+    pub fn unmarshal(bytes: []const u8) ProtocolError!ItemQuerySingleClient {
+        if (bytes.len < 4) return ProtocolError.InvalidMessage;
+        return .{
+            .entry = utils.readU32LE(bytes, 0) catch return ProtocolError.InvalidMessage,
+        };
+    }
+};
+
+// ─── SMSG_ITEM_QUERY_SINGLE_RESPONSE (opcode 0x058) ────────────────────────
+//
+// Full 3.3.5a item template dump. Field order mirrors the reference core
+// (arenacraft) Handler "HandleItemQuerySingleOpcode"; entries missing from
+// game data are answered by the same opcode with the high-bit marker.
+
+pub const ItemQuerySingleResponseServer = struct {
+    pub const opcode: Opcode = .smsg_item_query_single_response;
+
+    /// SoundOverrideSubclass: <0 keeps the subclass default sound.
+    pub const sound_override_unknown: i32 = -1;
+    /// AllowableClass/AllowableRace: -1 = unrestricted.
+    pub const allowance_all: i32 = -1;
+
+    const spell_block_count = 5;
+    const damage_count = 2;
+    const socket_count = 3;
+
+    entry: u32,
+    /// Null answers "unknown entry" with `entry | 0x80000000`.
+    def: ?domain.items.ItemDef,
+
+    pub fn marshal(self: ItemQuerySingleResponseServer, allocator: std.mem.Allocator) ![]u8 {
+        var out: std.ArrayList(u8) = .empty;
+        errdefer out.deinit(allocator);
+
+        const def = self.def orelse {
+            try appendU32(allocator, &out, self.entry | 0x8000_0000);
+            return out.toOwnedSlice(allocator);
+        };
+
+        try appendU32(allocator, &out, def.entry);
+        try appendU32(allocator, &out, def.item_class);
+        try appendU32(allocator, &out, def.item_subclass);
+        try appendI32(allocator, &out, sound_override_unknown);
+        try appendCString(allocator, &out, def.name);
+        // The client expects three further name slots as empty strings.
+        try out.append(allocator, 0); // name2
+        try out.append(allocator, 0); // name3
+        try out.append(allocator, 0); // name4
+        try appendU32(allocator, &out, def.display_id);
+        try appendU32(allocator, &out, def.quality);
+        try appendU32(allocator, &out, 0); // flags
+        try appendU32(allocator, &out, 0); // flags2
+        try appendU32(allocator, &out, 0); // buy_price
+        try appendU32(allocator, &out, 0); // sell_price
+        try appendU32(allocator, &out, def.inventory_type);
+        try appendI32(allocator, &out, allowance_all); // allowable_class
+        try appendI32(allocator, &out, allowance_all); // allowable_race
+        try appendU32(allocator, &out, 0); // item_level
+        try appendU32(allocator, &out, 0); // required_level
+        try appendU32(allocator, &out, 0); // required_skill
+        try appendU32(allocator, &out, 0); // required_skill_rank
+        try appendU32(allocator, &out, 0); // required_spell
+        try appendU32(allocator, &out, 0); // required_honor_rank
+        try appendU32(allocator, &out, 0); // required_city_rank
+        try appendI32(allocator, &out, 0); // required_reputation_faction
+        try appendI32(allocator, &out, 0); // required_reputation_rank
+        try appendI32(allocator, &out, 0); // max_count
+        try appendI32(allocator, &out, 0); // stackable
+        try appendU32(allocator, &out, 0); // container_slots
+
+        // Stat bonuses; only non-zero contributions are listed.
+        var stat_count: u32 = 0;
+        if (def.stamina != 0) stat_count += 1;
+        if (def.intellect != 0) stat_count += 1;
+        try appendU32(allocator, &out, stat_count);
+        if (def.stamina != 0) {
+            try appendU32(allocator, &out, domain.items.stamina_stat_id);
+            try appendI32(allocator, &out, @intCast(def.stamina));
+        }
+        if (def.intellect != 0) {
+            try appendU32(allocator, &out, domain.items.intellect_stat_id);
+            try appendI32(allocator, &out, @intCast(def.intellect));
+        }
+
+        try appendU32(allocator, &out, 0); // scaling_stat_distribution
+        try appendU32(allocator, &out, 0); // scaling_stat_value
+        for (0..damage_count) |_| {
+            try appendF32(allocator, &out, 0); // damage_min
+            try appendF32(allocator, &out, 0); // damage_max
+            try appendU32(allocator, &out, 0); // damage_type
+        }
+        try appendU32(allocator, &out, def.armor); // resistances[0]
+        for (0..6) |_| try appendI32(allocator, &out, 0); // holy..arcane resistance
+        try appendU32(allocator, &out, 0); // delay
+        try appendU32(allocator, &out, 0); // ammo_type
+        try appendF32(allocator, &out, 0); // ranged_mod_range
+        for (0..spell_block_count) |_| {
+            try appendU32(allocator, &out, 0); // spell_id
+            try appendU32(allocator, &out, 0); // spell_trigger
+            try appendI32(allocator, &out, 0); // spell_charges
+            try appendU32(allocator, &out, 0xFFFF_FFFF); // spell_cooldown (-1)
+            try appendU32(allocator, &out, 0); // spell_category
+            try appendU32(allocator, &out, 0xFFFF_FFFF); // spell_category_cooldown (-1)
+        }
+        try appendU32(allocator, &out, 0); // bonding
+        try appendCString(allocator, &out, ""); // description
+        try appendU32(allocator, &out, 0); // page_text
+        try appendU32(allocator, &out, 0); // language_id
+        try appendU32(allocator, &out, 0); // page_material
+        try appendU32(allocator, &out, 0); // start_quest
+        try appendU32(allocator, &out, 0); // lock_id
+        try appendI32(allocator, &out, 0); // material
+        try appendU32(allocator, &out, 0); // sheath
+        try appendI32(allocator, &out, 0); // random_property
+        try appendI32(allocator, &out, 0); // random_suffix
+        try appendU32(allocator, &out, 0); // block
+        try appendU32(allocator, &out, 0); // item_set
+        try appendU32(allocator, &out, 0); // max_durability
+        try appendU32(allocator, &out, 0); // area
+        try appendU32(allocator, &out, 0); // map
+        try appendU32(allocator, &out, 0); // bag_family
+        try appendU32(allocator, &out, 0); // totem_category
+        for (0..socket_count) |_| {
+            try appendU32(allocator, &out, 0); // socket color
+            try appendU32(allocator, &out, 0); // socket content
+        }
+        try appendU32(allocator, &out, 0); // socket_bonus
+        try appendU32(allocator, &out, 0); // gem_properties
+        try appendU32(allocator, &out, 0); // required_disenchant_skill
+        try appendF32(allocator, &out, 0); // armor_damage_modifier
+        try appendU32(allocator, &out, 0); // duration
+        try appendU32(allocator, &out, 0); // item_limit_category
+        try appendU32(allocator, &out, 0); // holiday_id
+
+        return out.toOwnedSlice(allocator);
+    }
+};
+
+fn appendU32(allocator: std.mem.Allocator, out: *std.ArrayList(u8), value: u32) !void {
+    var buf: [4]u8 = undefined;
+    std.mem.writeInt(u32, &buf, value, .little);
+    try out.appendSlice(allocator, &buf);
+}
+
+fn appendI32(allocator: std.mem.Allocator, out: *std.ArrayList(u8), value: i32) !void {
+    try appendU32(allocator, out, @bitCast(value));
+}
+
+fn appendF32(allocator: std.mem.Allocator, out: *std.ArrayList(u8), value: f32) !void {
+    try appendU32(allocator, out, @bitCast(value));
+}
+
+fn appendCString(allocator: std.mem.Allocator, out: *std.ArrayList(u8), value: []const u8) !void {
+    try out.appendSlice(allocator, value);
+    try out.append(allocator, 0);
+}
 
 // ─── SMSG_AUTH_CHALLENGE (opcode 0x1EC) ─────────────────────────────────────
 
@@ -1196,9 +1360,13 @@ pub const PlayerCreateServer = struct {
             .hair_color = character.hair_color,
             .facial_hair = character.facial_hair,
             .level = character.level,
-            .health = 100,
+            .health = character.derived.max_health,
             .power_type = character.class_id.powerTypeId().valueOf(),
-            .power = 100,
+            .power = character.derived.max_power,
+            .base_stats = character.derived.base_stats,
+            .item_stats = character.derived.item_stats,
+            .armor = character.derived.armor,
+            .item_guids = character.item_guids,
             .faction_template = domain.races.factionTemplate(character.race_id),
             .display_id = domain.races.displayId(character.race_id, character.gender),
             .visible_items = self.visible_items,
@@ -1237,3 +1405,58 @@ pub const DestroyObjectServer = struct {
         try w.print("World.DestroyObjectServer{{ guid=0x{X}, on_death={} }}", .{ self.guid.valueOf(), self.on_death });
     }
 };
+
+// ─── tests ──────────────────────────────────────────────────────────────────
+
+test "item query response dumps the full 3.3.5a item template" {
+    const t = std.testing;
+    const def = domain.items.findItem(6834) orelse return error.MissingItem;
+
+    const body = try (ItemQuerySingleResponseServer{ .entry = def.entry, .def = def }).marshal(t.allocator);
+    defer t.allocator.free(body);
+
+    try t.expectEqual(@as(usize, 449), body.len);
+    try t.expectEqual(@as(u32, 6834), std.mem.readInt(u32, body[0..4], .little)); // entry
+    try t.expectEqual(@as(u32, 4), std.mem.readInt(u32, body[4..8], .little)); // item_class (armor)
+    try t.expectEqual(@as(u32, 1), std.mem.readInt(u32, body[8..12], .little)); // item_subclass (cloth)
+    try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[12..16], .little)); // sound_override
+    try t.expectEqualStrings("Black Tuxedo", body[16..28]);
+    try t.expectEqual(@as(u8, 0), body[28]); // name terminator
+    try t.expectEqual(@as(u8, 0), body[29]); // name2
+    try t.expectEqual(@as(u8, 0), body[30]); // name3
+    try t.expectEqual(@as(u8, 0), body[31]); // name4
+    try t.expectEqual(@as(u32, 13116), std.mem.readInt(u32, body[32..36], .little)); // display_id
+    try t.expectEqual(@as(u32, 1), std.mem.readInt(u32, body[36..40], .little)); // quality
+    try t.expectEqual(@as(u32, 5), std.mem.readInt(u32, body[56..60], .little)); // inventory_type
+    try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[60..64], .little)); // allowable_class
+    try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[64..68], .little)); // allowable_race
+    try t.expectEqual(@as(u32, 2), std.mem.readInt(u32, body[116..120], .little)); // stats_count
+    try t.expectEqual(@as(u32, domain.items.stamina_stat_id), std.mem.readInt(u32, body[120..124], .little));
+    try t.expectEqual(@as(u32, 12), std.mem.readInt(u32, body[124..128], .little));
+    try t.expectEqual(@as(u32, domain.items.intellect_stat_id), std.mem.readInt(u32, body[128..132], .little));
+    try t.expectEqual(@as(u32, 8), std.mem.readInt(u32, body[132..136], .little));
+    try t.expectEqual(@as(u32, 150), std.mem.readInt(u32, body[168..172], .little)); // armor
+    try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[220..224], .little)); // spell cooldown
+    try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[228..232], .little)); // spell category cooldown
+    try t.expectEqual(@as(u32, 0), std.mem.readInt(u32, body[445..449], .little)); // holiday_id
+}
+
+test "item query response marks unknown entries with the high bit" {
+    const t = std.testing;
+
+    const body = try (ItemQuerySingleResponseServer{ .entry = 12345, .def = null }).marshal(t.allocator);
+    defer t.allocator.free(body);
+
+    try t.expectEqual(@as(usize, 4), body.len);
+    try t.expectEqual(@as(u32, 12345 | 0x8000_0000), std.mem.readInt(u32, body[0..4], .little));
+}
+
+test "item query single client reads the entry" {
+    const t = std.testing;
+
+    var payload: [4]u8 = undefined;
+    std.mem.writeInt(u32, &payload, 6834, .little);
+
+    const query = try ItemQuerySingleClient.unmarshal(&payload);
+    try t.expectEqual(@as(u32, 6834), query.entry);
+}

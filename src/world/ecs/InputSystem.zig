@@ -16,10 +16,6 @@ const LocalChatSystem = @import("LocalChatSystem.zig");
 const Arc = stdx.Arc;
 const ArcRuntime = stdx.ArcRuntime;
 
-// Placeholders carried over from the pre-ECS login path.
-const placeholder_health: u32 = 100;
-const placeholder_power: u32 = 100;
-
 const log = std.log.scoped(.input_system);
 
 pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
@@ -81,8 +77,9 @@ fn createPlayerEntity(reg: *ecs.Registry, player: *domain.Player) ecs.Entity {
         .hair_color = character.hair_color,
         .facial_hair = character.facial_hair,
     });
-    reg.add(entity, component.VisibleItems{ .entries = character.visible_items });
+    reg.add(entity, component.VisibleItems{ .entries = character.visible_items, .guids = character.item_guids });
     reg.add(entity, component.Level{ .value = character.level });
+    reg.add(entity, component.Stats{ .derived = character.derived });
 
     return entity;
 }

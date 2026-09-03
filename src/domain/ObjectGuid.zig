@@ -17,6 +17,14 @@ pub const ObjectGuid = struct {
         return .{ .raw = low };
     }
 
+    /// HighGuid discriminator for item objects (bits 63..48). Items carry
+    /// no entry in the raw guid, just the instance counter.
+    pub const item_high: u64 = 0x4000;
+
+    pub fn item(low: u32) ObjectGuid {
+        return .{ .raw = item_high << 48 | low };
+    }
+
     pub fn fromRaw(raw: u64) ObjectGuid {
         return .{ .raw = raw };
     }
@@ -76,6 +84,14 @@ test "player object guids use the low counter as raw value" {
     const guid = ObjectGuid.player(42);
     try std.testing.expectEqual(@as(u64, 42), guid.valueOf());
     try std.testing.expectEqual(@as(u32, 42), guid.playerLow().?);
+}
+
+test "item guids carry the item HighGuid discriminator" {
+    const guid = ObjectGuid.item(0x24);
+    try std.testing.expectEqual(@as(u64, 0x4000_0000_0000_0024), guid.valueOf());
+    // The low counter sits in the same bits as player guids.
+    try std.testing.expectEqual(@as(u32, 0x24), @as(u32, @truncate(guid.valueOf())));
+    try std.testing.expect(guid.playerLow() == null);
 }
 
 pub const Packed = struct {

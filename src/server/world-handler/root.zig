@@ -4,6 +4,7 @@ pub const character = @import("Character.zig");
 pub const movement = @import("Movement.zig");
 pub const chat = @import("Chat.zig");
 pub const login = @import("Login.zig");
+pub const item = @import("Item.zig");
 
 test {
     _ = @import("WorldServerConnection.zig");
@@ -11,4 +12,5 @@ test {
     _ = @import("Movement.zig");
     _ = @import("Chat.zig");
     _ = @import("Login.zig");
+    _ = @import("Item.zig");
 }

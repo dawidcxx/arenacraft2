@@ -13,6 +13,7 @@ const WorldServerConnection = world_handler.WorldServerConnection;
 const Session = domain.Session;
 const character_commands = world_handler.character;
 const login_handler = world_handler.login;
+const item_handler = world_handler.item;
 
 pub const log = std.log.scoped(.world_server);
 
@@ -309,6 +310,9 @@ fn dispatchPacket(
             const signedin_player_ref = try login_handler.handlePlayerLogin(alloc, io, pool, session, conn, payload_scratch_buf, sim, clock);
             player_ref.* = signedin_player_ref;
             return;
+        },
+        .cmsg_item_query_single => {
+            return try item_handler.handleItemQuerySingle(alloc, conn, payload_scratch_buf);
         },
         else => {
             return log.warn("Unhandled opcode in #dispatchPacket (opcode=0x{X}, account={s})", .{ header.opcode, session.account });
