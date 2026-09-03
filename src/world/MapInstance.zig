@@ -50,6 +50,30 @@ pub const MapInstance = struct {
         };
     }
 
+    pub fn pushSpellCastAsync(self: *Self, io: std.Io, request: MapInstanceInbox.SpellCast) void {
+        self.inbox.putOne(io, .{ .spell_cast = request }) catch |e| {
+            log.info("Dropping .pushSpellCastAsync, reason='{}'", .{e});
+        };
+    }
+
+    pub fn pushAttackSwingAsync(self: *Self, io: std.Io, request: MapInstanceInbox.AttackSwing) void {
+        self.inbox.putOne(io, .{ .attack_swing = request }) catch |e| {
+            log.info("Dropping .pushAttackSwingAsync, reason='{}'", .{e});
+        };
+    }
+
+    pub fn pushAttackStopAsync(self: *Self, io: std.Io, request: MapInstanceInbox.AttackStop) void {
+        self.inbox.putOne(io, .{ .attack_stop = request }) catch |e| {
+            log.info("Dropping .pushAttackStopAsync, reason='{}'", .{e});
+        };
+    }
+
+    pub fn pushCancelCastAsync(self: *Self, io: std.Io, request: MapInstanceInbox.CancelCast) void {
+        self.inbox.putOne(io, .{ .cancel_cast = request }) catch |e| {
+            log.info("Dropping .pushCancelCastAsync, reason='{}'", .{e});
+        };
+    }
+
     pub fn joinPlayer(
         self: *Self,
         io: std.Io,
@@ -117,6 +141,18 @@ pub const MapInstance = struct {
                         .chat => |chat| {
                             self.map_ecs.addInput(.{ .local_chat = .{ .account_id = chat.account_id, .packet = chat.packet } });
                             // chat is async only, no ack
+                        },
+                        .spell_cast => |cast| {
+                            self.map_ecs.addInput(.{ .spell_cast = .{ .account_id = cast.account_id, .packet = cast.packet } });
+                        },
+                        .attack_swing => |swing| {
+                            self.map_ecs.addInput(.{ .attack_swing = .{ .account_id = swing.account_id, .packet = swing.packet } });
+                        },
+                        .attack_stop => |stop| {
+                            self.map_ecs.addInput(.{ .attack_stop = .{ .account_id = stop.account_id } });
+                        },
+                        .cancel_cast => |cancel| {
+                            self.map_ecs.addInput(.{ .cancel_cast = .{ .account_id = cancel.account_id, .packet = cancel.packet } });
                         },
                     }
 

@@ -13,6 +13,11 @@ pub const PlayerMove = struct {
 
 pub const LocalChat = struct { account_id: u64, packet: protocol.chat.MessageChatClient };
 
+pub const SpellCast = struct { account_id: u64, packet: protocol.spell.CastSpellClient };
+pub const AttackSwing = struct { account_id: u64, packet: protocol.spell.AttackSwingClient };
+pub const AttackStop = struct { account_id: u64 };
+pub const CancelCast = struct { account_id: u64, packet: protocol.spell.CancelCastClient };
+
 pub const Input = union(enum) {
     player_join: struct {
         player: *domain.Player,
@@ -22,6 +27,10 @@ pub const Input = union(enum) {
     },
     player_move: PlayerMove,
     local_chat: LocalChat,
+    spell_cast: SpellCast,
+    attack_swing: AttackSwing,
+    attack_stop: AttackStop,
+    cancel_cast: CancelCast,
 };
 
 pub const EcsEventType = enum {

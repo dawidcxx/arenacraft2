@@ -38,6 +38,25 @@ pub const AllMovementPackets = union(MovementOpCode) {
         };
     }
 
+    /// Whether this packet displaces the mover. Position-changing movement
+    /// interrupts a running non-instant cast (client cancels its own cast
+    /// bar the moment it starts moving; the server must match or the cast
+    /// would complete for a client that no longer expects it).
+    pub fn interruptsCast(self: AllMovementPackets) bool {
+        return switch (self) {
+            .msg_move_start_forward,
+            .msg_move_start_backward,
+            .msg_move_start_strafe_left,
+            .msg_move_start_strafe_right,
+            .msg_move_jump,
+            .msg_move_fall_land,
+            .msg_move_start_swim,
+            .msg_move_heartbeat,
+            => true,
+            else => false,
+        };
+    }
+
     pub fn fromOpcodeAndBody(
         opcode: MovementOpCode,
         body: []const u8,

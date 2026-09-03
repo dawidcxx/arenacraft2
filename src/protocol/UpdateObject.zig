@@ -350,6 +350,11 @@ pub const UnitField = enum(u16) {
     base_health = 121,
     level = 54,
     faction_template = 55,
+    /// UNIT_FIELD_FLAGS. The client's attack/reaction logic (Unit::CanAttack,
+    /// 13850) only reaches the PvP/FFA-hostile branch when BOTH units carry
+    /// UNIT_FLAG_PLAYER_CONTROLLED (0x8) here; without it same-faction
+    /// players are friendly no matter the bytes_2 FFA flag.
+    flags = 59,
     display_id = 67,
     native_display_id = 68,
     bytes_2 = 122,
@@ -639,6 +644,10 @@ pub const PlayerCreate = struct {
         }
         fields.set(UnitField.level, self.level);
         fields.set(UnitField.faction_template, self.faction_template);
+        // UNIT_FLAG_PLAYER_CONTROLLED: players are always player-controlled
+        // in the PvP-only scope; the client needs it to treat other players
+        // as attackable (PvP realm behavior in the reference core).
+        fields.set(UnitField.flags, unit_flag_player_controlled);
         fields.set(UnitField.display_id, self.display_id);
         fields.set(UnitField.native_display_id, self.display_id);
         // UNIT_FIELD_BASE_MANA is PUBLIC; the client only renders a mana
@@ -904,9 +913,17 @@ fn packedU16(low: u16, high: u16) u32 {
     return @as(u32, low) | @as(u32, high) << 16;
 }
 
-/// UNIT_FIELD_BYTES_2 byte 1 flag: the unit has PvP enabled, which makes
-/// the client render the PvP state (name plates, arena frames).
-const unit_bytes_2_pvp: u32 = 0x0000_0100;
+/// UNIT_FIELD_BYTES_2 byte flags the client uses to decide attackability.
+/// Byte 0 (0x0100): PvP enabled — renders the PvP state (name plates,
+/// arena frames). Byte 1 (0x0400): free-for-all PvP — every FFA-flagged
+/// unit is attackable by every other, which is what turns players hostile
+/// to each other in the arena scope.
+const unit_bytes_2_pvp: u32 = 0x0000_0100 | 0x0000_0400;
+
+/// UNIT_FLAG_PLAYER_CONTROLLED (0x8) in UNIT_FIELD_FLAGS: marks the unit as
+/// player-controlled. The client's Unit::CanAttack equivalent requires it
+/// on both units before FFA hostility applies.
+const unit_flag_player_controlled: u32 = 0x0000_0008;
 
 pub fn writePackedGuid(out: *std.ArrayList(u8), gpa: std.mem.Allocator, guid: ObjectGuid) !void {
     const encoded = guid.toPacked();
@@ -955,6 +972,7 @@ test "field dictionaries resolve to the wire indices" {
     try t.expectEqual(@as(u16, 89), @intFromEnum(UnitField.posStat(0)));
     try t.expectEqual(@as(u16, 93), @intFromEnum(UnitField.posStat(4)));
     try t.expectEqual(@as(u16, 99), @intFromEnum(UnitField.resistance(0)));
+    try t.expectEqual(@as(u16, 59), @intFromEnum(UnitField.flags));
     try t.expectEqual(@as(u16, 120), @intFromEnum(UnitField.base_mana));
     try t.expectEqual(@as(u16, 121), @intFromEnum(UnitField.base_health));
     try t.expectEqual(@as(u16, 283), @intFromEnum(PlayerField.visible_item_1_entry_id));
@@ -1024,10 +1042,10 @@ test "player create_object2 block has the expected wire shape" {
     try t.expectEqual(@as(u32, 0xAABBCCDD), std.mem.readInt(u32, body[16..20], .little));
 
     // Head is 76 bytes (guid/type/flags + 30-byte MovementInfo + 9 speeds);
-    // fields follow: 20 blocks (highest field 638), 20 masks, 35 values.
+    // fields follow: 20 blocks (highest field 638), 20 masks, 36 values.
     try t.expectEqual(@as(u8, 20), body[76]);
     try t.expectEqual(@as(u32, 0x03800017), std.mem.readInt(u32, body[77..81], .little)); // bits 0,1,2,4,23,24,25
-    try t.expectEqual(@as(u32, 0x00C00003), std.mem.readInt(u32, body[81..85], .little)); // 32,33,54,55
+    try t.expectEqual(@as(u32, 0x08C00003), std.mem.readInt(u32, body[81..85], .little)); // 32,33,54,55,59
     try t.expectEqual(@as(u32, 0x3FF00018), std.mem.readInt(u32, body[85..89], .little)); // 67,68,stats 84-93
     try t.expectEqual(@as(u32, 0x07000008), std.mem.readInt(u32, body[89..93], .little)); // 99,120,121,122
     try t.expectEqual(@as(u32, 0x0E000000), std.mem.readInt(u32, body[93..97], .little)); // 153,154,155
@@ -1037,19 +1055,21 @@ test "player create_object2 block has the expected wire shape" {
     try t.expectEqual(@as(u32, 1), std.mem.readInt(u32, body[values_start..][0..4], .little)); // guid
     try t.expectEqual(@as(u32, 100), std.mem.readInt(u32, body[values_start + 20 ..][0..4], .little)); // health
     try t.expectEqual(@as(u32, 80), std.mem.readInt(u32, body[values_start + 36 ..][0..4], .little)); // level
-    try t.expectEqual(@as(u32, 11), std.mem.readInt(u32, body[values_start + 52 ..][0..4], .little)); // stat0
-    try t.expectEqual(@as(u32, 13), std.mem.readInt(u32, body[values_start + 60 ..][0..4], .little)); // stat2 (stamina)
-    try t.expectEqual(@as(u32, 30), std.mem.readInt(u32, body[values_start + 80 ..][0..4], .little)); // posstat2
-    try t.expectEqual(@as(u32, 360), std.mem.readInt(u32, body[values_start + 92 ..][0..4], .little)); // armor
-    try t.expectEqual(@as(u32, 1000), std.mem.readInt(u32, body[values_start + 96 ..][0..4], .little)); // base_mana
-    try t.expectEqual(@as(u32, 1000), std.mem.readInt(u32, body[values_start + 100 ..][0..4], .little)); // base_health
-    try t.expectEqual(@as(u32, 0x100), std.mem.readInt(u32, body[values_start + 104 ..][0..4], .little)); // bytes_2 pvp
-    try t.expectEqual(@as(u32, 0x24), std.mem.readInt(u32, body[values_start + 120 ..][0..4], .little)); // inv slot 4 low
-    try t.expectEqual(@as(u32, 0x4000), std.mem.readInt(u32, body[values_start + 124 ..][0..4], .little)); // inv slot 4 high
-    try t.expectEqual(@as(u32, packedU16(98, 0)), std.mem.readInt(u32, body[values_start + 128 ..][0..4], .little));
-    try t.expectEqual(@as(u32, packedU16(300, 300)), std.mem.readInt(u32, body[values_start + 132 ..][0..4], .little));
-    try t.expectEqual(@as(u32, 0), std.mem.readInt(u32, body[values_start + 136 ..][0..4], .little));
-    try t.expectEqual(@as(usize, 297), body.len);
+    try t.expectEqual(@as(u32, 1), std.mem.readInt(u32, body[values_start + 40 ..][0..4], .little)); // faction
+    try t.expectEqual(@as(u32, 0x8), std.mem.readInt(u32, body[values_start + 44 ..][0..4], .little)); // flags: player controlled
+    try t.expectEqual(@as(u32, 11), std.mem.readInt(u32, body[values_start + 56 ..][0..4], .little)); // stat0
+    try t.expectEqual(@as(u32, 13), std.mem.readInt(u32, body[values_start + 64 ..][0..4], .little)); // stat2 (stamina)
+    try t.expectEqual(@as(u32, 30), std.mem.readInt(u32, body[values_start + 84 ..][0..4], .little)); // posstat2
+    try t.expectEqual(@as(u32, 360), std.mem.readInt(u32, body[values_start + 96 ..][0..4], .little)); // armor
+    try t.expectEqual(@as(u32, 1000), std.mem.readInt(u32, body[values_start + 100 ..][0..4], .little)); // base_mana
+    try t.expectEqual(@as(u32, 1000), std.mem.readInt(u32, body[values_start + 104 ..][0..4], .little)); // base_health
+    try t.expectEqual(@as(u32, 0x500), std.mem.readInt(u32, body[values_start + 108 ..][0..4], .little)); // bytes_2 pvp+ffa
+    try t.expectEqual(@as(u32, 0x24), std.mem.readInt(u32, body[values_start + 124 ..][0..4], .little)); // inv slot 4 low
+    try t.expectEqual(@as(u32, 0x4000), std.mem.readInt(u32, body[values_start + 128 ..][0..4], .little)); // inv slot 4 high
+    try t.expectEqual(@as(u32, packedU16(98, 0)), std.mem.readInt(u32, body[values_start + 132 ..][0..4], .little));
+    try t.expectEqual(@as(u32, packedU16(300, 300)), std.mem.readInt(u32, body[values_start + 136 ..][0..4], .little));
+    try t.expectEqual(@as(u32, 0), std.mem.readInt(u32, body[values_start + 140 ..][0..4], .little));
+    try t.expectEqual(@as(usize, 301), body.len);
 }
 
 test "values and out_of_range blocks marshal" {

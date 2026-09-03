@@ -14,6 +14,7 @@ const Session = domain.Session;
 const character_commands = world_handler.character;
 const login_handler = world_handler.login;
 const item_handler = world_handler.item;
+const spell_handler = world_handler.spell;
 
 pub const log = std.log.scoped(.world_server);
 
@@ -314,6 +315,48 @@ fn dispatchPacket(
         .cmsg_item_query_single => {
             return try item_handler.handleItemQuerySingle(alloc, conn, payload_scratch_buf);
         },
+        .cmsg_cast_spell => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleCastSpell(io, player, payload_scratch_buf);
+        },
+        .cmsg_attackswing => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleAttackSwing(io, player, payload_scratch_buf);
+        },
+        .cmsg_attackstop => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleAttackStop(io, player);
+        },
+        .cmsg_cancel_cast => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleCancelCast(io, player, payload_scratch_buf);
+        },
+        // UI/lifecycle chatter with no server behavior yet; swallowing by
+        // name keeps the unhandled-opcode warning meaningful.
+        .cmsg_join_channel,
+        .cmsg_cancel_trade,
+        .cmsg_set_selection,
+        .cmsg_played_time,
+        .cmsg_query_time,
+        .cmsg_set_sheathed,
+        .cmsg_zoneupdate,
+        .cmsg_gmticket_getticket,
+        .cmsg_battlefield_list,
+        .cmsg_set_active_mover,
+        .msg_query_next_mail_time,
+        .cmsg_lfg_get_status,
+        .cmsg_set_actionbar_toggles,
+        .cmsg_request_raid_info,
+        .cmsg_move_time_skipped,
+        .cmsg_battlefield_status,
+        .cmsg_lfd_player_lock_info_request,
+        .cmsg_voice_session_enable,
+        .cmsg_set_active_voice_channel,
+        .msg_guild_bank_money_withdrawn,
+        .cmsg_calendar_get_num_pending,
+        .cmsg_world_state_ui_timer_update,
+        .cmsg_force_run_speed_change_ack,
+        => {},
         else => {
             return log.warn("Unhandled opcode in #dispatchPacket (opcode=0x{X}, account={s})", .{ header.opcode, session.account });
         },

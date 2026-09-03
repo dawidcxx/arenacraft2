@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 
 const ecs = @import("ecs");
 const stdx = @import("stdx");
+const domain = @import("domain");
 const Arc = stdx.Arc;
 const ArcRuntime = stdx.ArcRuntime;
 
@@ -63,9 +64,13 @@ pub const MapEcs = struct {
 
     pub fn run(self: *MapEcs, frame: Frame) !void {
         try @import("./InputSystem.zig").run(self, frame);
+        try @import("./SpellSystem.zig").run(self, frame);
+        try @import("./MeleeSystem.zig").run(self, frame);
+        try @import("./AuraSystem.zig").run(self, frame);
         try @import("./PlayerVisibilitySystem.zig").run(self, frame);
         try @import("./ClientInitSystem.zig").run(self, frame);
-        @import("./OutboundPacketSystem.zig").run(self, frame);
+        try @import("./OutboundPacketSystem.zig").run(self, frame);
+
         self.input_buffer.clearRetainingCapacity();
         self.output_buffer.clearRetainingCapacity();
         var events_it = self.events.iterator();
@@ -88,6 +93,17 @@ pub const MapEcs = struct {
         var iter = view.entityIterator();
         while (iter.next()) |entity| {
             if (self.registry.getConst(component.AccountId, entity).id == account_id) return entity;
+        }
+        return null;
+    }
+
+    /// Linear scan for the entity carrying a guid (players today). Used to
+    /// resolve client-supplied target guids into ECS entities.
+    pub fn findByGuid(self: *MapEcs, guid: domain.ObjectGuid) ?ecs.Entity {
+        var view = self.registry.view(.{component.Guid}, .{});
+        var iter = view.entityIterator();
+        while (iter.next()) |entity| {
+            if (self.registry.getConst(component.Guid, entity).value.valueOf() == guid.valueOf()) return entity;
         }
         return null;
     }
@@ -148,4 +164,5 @@ pub const MapEcs = struct {
 
 test {
     _ = @import("./EcsTest.zig");
+    _ = @import("./SpellTest.zig");
 }
