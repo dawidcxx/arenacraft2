@@ -71,6 +71,11 @@ reference core (Spell.cpp, Unit.cpp, SpellAuras.cpp, CombatHandler.cpp).
 - `CMSG_CANCEL_CAST` (0x12F): `u8` cast counter (ignored by the reference
   core) + `u32` spell id.
 - Schools: physical mask = 0x01, frost = 0x10 (SPELL_SCHOOL_MASK_*).
+- `UNIT_MOD_CAST_SPEED` (field 80, PUBLIC float): retail sets 1.0 on every
+  player at create. The client derives a watched unit's cast animation
+  timing from it — a zero leaves other clients showing the spell's visual
+  kit (hand glow) without the cast animation. This field cost us a whole
+  debugging session; keep it at 1.0 in the player create field set.
 
 ## Cast interruption
 
