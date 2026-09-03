@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const posix = std.posix;
 
 pub const ShutdownSignal = struct {
@@ -7,6 +8,8 @@ pub const ShutdownSignal = struct {
     var active: ?*ShutdownSignal = null;
 
     pub fn installSignalHandlers(self: *ShutdownSignal) void {
+        if (builtin.os.tag == .windows) return;
+
         active = self;
         const action: posix.Sigaction = .{
             .handler = .{ .sigaction = handleSignal },

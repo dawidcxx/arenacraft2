@@ -5,6 +5,8 @@ const auth = protocol.auth;
 const db = @import("db");
 const stdx = @import("stdx");
 const pg = @import("pg");
+const build_config = @import("build_config");
+
 const server_state = @import("./ServerState.zig");
 const ServerState = server_state.ServerState;
 const SrpSession = stdx.srp6_session.SrpSession;
@@ -76,7 +78,8 @@ pub const AuthServer = struct {
         var writer = stream.writer(self.io, tx_buf[0..]);
 
         self.connectionFiberInner(&reader.interface, &writer.interface) catch |err| switch (err) {
-            error.EndOfStream, error.ReadFailed => std.log.warn("auth read error: {}", .{err}),
+            error.EndOfStream => {},
+            error.ReadFailed => std.log.warn("auth read error, cause: {?}", .{reader.err}),
             else => std.log.warn("auth connection closed: {}", .{err}),
         };
     }
@@ -95,7 +98,7 @@ pub const AuthServer = struct {
         while (auth.Frame.readClientMessage(reader, msg_buf[0..])) |msg| {
             switch (msg) {
                 .logon_challenge => |c| {
-                    if (state != .wait_challenge) break;
+                    if (state != .wait_challenge) return error.IllegalState;
 
                     var account_row = db.auth.findByUsername(self.pool, c.username) catch |err| {
                         std.log.err("auth: account lookup failed: {}", .{err});
@@ -142,7 +145,7 @@ pub const AuthServer = struct {
                     state = .wait_proof;
                 },
                 .logon_proof => |p| {
-                    if (state != .wait_proof) break;
+                    if (state != .wait_proof) return error.IllegalState;
 
                     const result = srp.verifyProof(.{ .a_pub_le = p.A, .m1 = p.clientM }) catch {
                         try sendPacket(writer, self.allocator, auth.AuthLogonServerProofFailure{ .result = 0x04, .login_flags = 0 });
@@ -168,7 +171,7 @@ pub const AuthServer = struct {
                     state = .authenticated;
                 },
                 .realm_list => {
-                    if (state != .authenticated) break;
+                    if (state != .authenticated) return error.IllegalState;
 
                     var arena = std.heap.ArenaAllocator.init(self.allocator);
                     defer arena.deinit();

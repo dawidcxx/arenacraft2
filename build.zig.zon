@@ -9,8 +9,8 @@
 
     .dependencies = .{
         .pg = .{
-            .url = "git+https://github.com/karlseguin/pg.zig?ref=master#4215baf19f7f61a94aab9f6c5893ea12aa9bce96",
-            .hash = "pg-0.0.0-Wp_7gYr_BgC1O2IRXa8tdwXhOZJLLSAl7F_ut1N07zF7",
+            .url = "git+https://github.com/karlseguin/pg.zig?ref=master#f6442abf3fb0bbcf1007fac4799607f35688a89e",
+            .hash = "pg-0.0.0-Wp_7gVzCBgDIFbqjSA6I7bJQj0gh66KzpmDxvx1Nn4PV",
         },
         .entt = .{
             .url = "git+https://github.com/prime31/zig-ecs.git?ref=master#d3a429a157a0502ff4b3b2fa9389251bffca269e",

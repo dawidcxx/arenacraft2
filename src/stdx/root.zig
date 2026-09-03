@@ -4,6 +4,7 @@ pub const srp6_session = @import("./crypto/Srp6Session.zig");
 pub const StringList = @import("StringList.zig").StringList;
 pub const Arc = @import("Arc.zig").Arc;
 pub const ArcRuntime = @import("Arc.zig").ArcRuntime;
+pub const CoWList = @import("CoWList.zig").CoWList;
 pub const Clock = @import("Clock.zig").Clock;
 pub const ShutdownSignal = @import("ShutdownSignal.zig").ShutdownSignal;
 
@@ -125,5 +126,6 @@ test {
     _ = @import("./crypto/root.zig");
     _ = @import("./crypto/Srp6Session.zig");
     _ = @import("./Arc.zig");
+    _ = @import("./CoWList.zig");
     _ = @import("./StringList.zig");
 }
