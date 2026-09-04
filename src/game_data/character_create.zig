@@ -1,5 +1,7 @@
 const std = @import("std");
-const MapId = @import("./MapId.zig").MapId;
+const domain = @import("domain");
+
+const MapId = domain.MapId;
 
 pub const InstanceIds = struct {
     pub const eastern_kingdoms = "902e5fd8-67da-4ed1-9803-ec6d8ccf8ff4";

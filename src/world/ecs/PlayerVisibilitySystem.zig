@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const domain = @import("domain");
+const game_data = @import("game_data");
 const ecs = @import("ecs");
 const protocol = @import("protocol");
 
@@ -100,11 +101,11 @@ fn playerEntityToPlayerCreate(reg: *ecs.Registry, player: ecs.Entity, time_ms: u
         .base_stats = stats.derived.base_stats,
         .item_stats = stats.derived.item_stats,
         .armor = stats.derived.armor,
-        .faction_template = domain.races.factionTemplate(appearance.race_id),
-        .display_id = domain.races.displayId(appearance.race_id, appearance.gender),
+        .faction_template = game_data.races.factionTemplate(appearance.race_id),
+        .display_id = game_data.races.displayId(appearance.race_id, appearance.gender),
         .visible_items = reg.getConst(component.VisibleItems, player).entries,
         .item_guids = reg.getConst(component.VisibleItems, player).guids,
-        .language_skill_ids = domain.races.languageSkillIds(appearance.race_id),
+        .language_skill_ids = game_data.races.languageSkillIds(appearance.race_id),
         .time_ms = time_ms,
         .self_update = false,
     };

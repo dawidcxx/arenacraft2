@@ -1,5 +1,3 @@
-const game_data = @import("game_data");
-const items = @import("Items.zig");
 const ObjectGuid = @import("ObjectGuid.zig").ObjectGuid;
 
 pub const EquipmentSlot = enum(u8) {
@@ -31,21 +29,6 @@ pub const StarterItem = struct {
     item_entry: u32,
 };
 
-/// Starter outfit given to every new character, built at comptime from
-/// game_data/starter_suit.json. An invalid slot number or duplicate slot
-/// entry fails the build.
-pub const default_suit: [game_data.starter_suit.rows.len]StarterItem = blk: {
-    @setEvalBranchQuota(10_000);
-    var suit: [game_data.starter_suit.rows.len]StarterItem = undefined;
-    for (game_data.starter_suit.rows, 0..) |row, i| {
-        suit[i] = .{
-            .slot = @enumFromInt(@as(u8, @intCast(row.slot))),
-            .item_entry = @intCast(row.item_entry),
-        };
-    }
-    break :blk suit;
-};
-
 /// Deterministic item instance guid for an equipped slot, derived from the
 /// owning character and the slot index. INV_SLOT_HEAD is an owner-private
 /// field, so the guid only has to be unique within one character and stay
@@ -54,17 +37,6 @@ pub fn equippedInstanceGuid(character_guid: ObjectGuid, slot: u8) ObjectGuid {
     const character_low: u64 = character_guid.playerLow() orelse 0;
     const low: u32 = @truncate(character_low << 5 | slot);
     return ObjectGuid.item(low);
-}
-
-test "default suit resolves to known items in unique slots" {
-    const std = @import("std");
-
-    var seen = [_]bool{false} ** EquipmentSlot.count;
-    for (default_suit) |starter| {
-        try std.testing.expect(!seen[@intFromEnum(starter.slot)]);
-        seen[@intFromEnum(starter.slot)] = true;
-        _ = items.findItem(starter.item_entry) orelse return error.UnknownSuitItem;
-    }
 }
 
 test "equipped instance guids are unique per slot and stable" {

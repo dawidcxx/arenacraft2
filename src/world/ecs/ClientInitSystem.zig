@@ -1,4 +1,5 @@
 const domain = @import("domain");
+const game_data = @import("game_data");
 const ecs = @import("ecs");
 const protocol = @import("protocol");
 
@@ -30,7 +31,7 @@ fn sendClientInit(map_ecs: *MapEcs, frame: MapEcs.Frame, entity: ecs.Entity) !vo
     });
     try map_ecs.sendTo(entity, protocol.world.TalentsInfoServer{});
 
-    const language_spell_ids = domain.races.languageSpellIds(appearance.race_id);
+    const language_spell_ids = game_data.races.languageSpellIds(appearance.race_id);
     try map_ecs.sendTo(entity, protocol.world.InitialSpellsServer{ .spells = language_spell_ids });
     for (language_spell_ids) |spell_id| {
         try map_ecs.sendTo(entity, protocol.world.LearnedSpellServer{ .spell_id = spell_id });

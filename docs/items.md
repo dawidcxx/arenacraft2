@@ -6,15 +6,17 @@ and the extension points to use when this grows.
 ## Data flow
 
 ```
-game_data/items.json ──┐
-game_data/starter_suit.json ──┤ build.zig codegen (re-runs on every build)
-                              v
-domain: Items.zig (ItemDef lookup) / Equipment.zig (starter suit)
-                              v
+game_data/db/items.json ──┐
+game_data/db/starter_suit.json ──┤ build.zig codegen (re-runs on every build)
+                          v
+game_data_db (generated rows module)
+                          v
+game_data: items.zig (ItemDef lookup) / equipment.zig (starter suit)
+                          v
 login (Login.zig): character_equipment rows -> ItemDef per slot
-                              v
+                          v
 domain/CharacterStats.zig::derive(power_type, equipped) -> DerivedStats
-                              v
+                          v
 ECS Stats component -> PlayerCreate update block (create_object2)
 ```
 
@@ -57,18 +59,20 @@ ECS Stats component -> PlayerCreate update block (create_object2)
 
 ### Adding a new stat
 
-1. Add the column to `game_data/items.json` — **every row**; the codegen
+1. Add the column to `game_data/db/items.json` — **every row**; the codegen
    takes the column set from the first array element (missing keys
    zero-fill silently).
-2. Extend `ItemDef` (+ its comptime build in `Items.zig`) and the accumulate
-   step in `CharacterStats.derive`.
+2. Extend `ItemDef` (domain/ItemDef.zig), its comptime build in
+   `game_data/items.zig`, and the accumulate step in
+   `CharacterStats.derive`.
 3. Non-zero item stats are listed in the item query response with 3.3.5a
-   `ItemModType` ids (`Items.zig`: `stamina_stat_id` = 7, `intellect_stat_id`
-   = 5); add the new id there too.
+   `ItemModType` ids (`domain/ItemDef.zig`: `stamina_stat_id` = 7,
+   `intellect_stat_id` = 5); add the new id there too.
 
 ### Starter suit
 
-Data-driven from `starter_suit.json` (slot + item_entry). Slots must be
+Data-driven from `game_data/db/starter_suit.json` (slot + item_entry), parsed
+by `game_data/equipment.zig`. Slots must be
 unique and valid — enforced at comptime; duplicate item entries in
 `items.json` are a compile error (binary search requires strictly
 increasing entries).

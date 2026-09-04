@@ -1,5 +1,6 @@
 const std = @import("std");
 const domain = @import("domain");
+const game_data = @import("game_data");
 const ProtocolError = @import("./ProtocolError.zig").ProtocolErrorSet;
 const utils = @import("./ProtocolUtils.zig");
 const world_auth = @import("./WorldAuthCrypt.zig");
@@ -279,7 +280,7 @@ pub const ItemQuerySingleResponseServer = struct {
 
     entry: u32,
     /// Null answers "unknown entry" with `entry | 0x80000000`.
-    def: ?domain.items.ItemDef,
+    def: ?domain.ItemDef,
 
     pub fn marshal(self: ItemQuerySingleResponseServer, allocator: std.mem.Allocator) ![]u8 {
         var out: std.ArrayList(u8) = .empty;
@@ -327,11 +328,11 @@ pub const ItemQuerySingleResponseServer = struct {
         if (def.intellect != 0) stat_count += 1;
         try appendU32(allocator, &out, stat_count);
         if (def.stamina != 0) {
-            try appendU32(allocator, &out, domain.items.stamina_stat_id);
+            try appendU32(allocator, &out, domain.ItemDef.stamina_stat_id);
             try appendI32(allocator, &out, @intCast(def.stamina));
         }
         if (def.intellect != 0) {
-            try appendU32(allocator, &out, domain.items.intellect_stat_id);
+            try appendU32(allocator, &out, domain.ItemDef.intellect_stat_id);
             try appendI32(allocator, &out, @intCast(def.intellect));
         }
 
@@ -1408,10 +1409,10 @@ pub const PlayerCreateServer = struct {
             .item_stats = character.derived.item_stats,
             .armor = character.derived.armor,
             .item_guids = character.item_guids,
-            .faction_template = domain.races.factionTemplate(character.race_id),
-            .display_id = domain.races.displayId(character.race_id, character.gender),
+            .faction_template = game_data.races.factionTemplate(character.race_id),
+            .display_id = game_data.races.displayId(character.race_id, character.gender),
             .visible_items = self.visible_items,
-            .language_skill_ids = domain.races.languageSkillIds(character.race_id),
+            .language_skill_ids = game_data.races.languageSkillIds(character.race_id),
             .time_ms = self.time_ms,
             .self_update = self.self_update,
         } } });
@@ -1451,7 +1452,7 @@ pub const DestroyObjectServer = struct {
 
 test "item query response dumps the full 3.3.5a item template" {
     const t = std.testing;
-    const def = domain.items.findItem(6834) orelse return error.MissingItem;
+    const def = game_data.items.findItem(6834) orelse return error.MissingItem;
 
     const body = try (ItemQuerySingleResponseServer{ .entry = def.entry, .def = def }).marshal(t.allocator);
     defer t.allocator.free(body);
@@ -1472,9 +1473,9 @@ test "item query response dumps the full 3.3.5a item template" {
     try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[60..64], .little)); // allowable_class
     try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[64..68], .little)); // allowable_race
     try t.expectEqual(@as(u32, 2), std.mem.readInt(u32, body[116..120], .little)); // stats_count
-    try t.expectEqual(@as(u32, domain.items.stamina_stat_id), std.mem.readInt(u32, body[120..124], .little));
+    try t.expectEqual(@as(u32, domain.ItemDef.stamina_stat_id), std.mem.readInt(u32, body[120..124], .little));
     try t.expectEqual(@as(u32, 12), std.mem.readInt(u32, body[124..128], .little));
-    try t.expectEqual(@as(u32, domain.items.intellect_stat_id), std.mem.readInt(u32, body[128..132], .little));
+    try t.expectEqual(@as(u32, domain.ItemDef.intellect_stat_id), std.mem.readInt(u32, body[128..132], .little));
     try t.expectEqual(@as(u32, 8), std.mem.readInt(u32, body[132..136], .little));
     try t.expectEqual(@as(u32, 150), std.mem.readInt(u32, body[168..172], .little)); // armor
     try t.expectEqual(@as(u32, 0xFFFF_FFFF), std.mem.readInt(u32, body[220..224], .little)); // spell cooldown

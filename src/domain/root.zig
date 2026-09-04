@@ -1,11 +1,8 @@
-pub const character_create = @import("CharacterCreate.zig");
 pub const ObjectGuid = @import("ObjectGuid.zig").ObjectGuid;
-pub const items = @import("Items.zig");
-pub const spells = @import("Spells.zig");
-pub const initial_spells = @import("InitialSpells.zig");
+pub const ItemDef = @import("ItemDef.zig").ItemDef;
+pub const SpellDef = @import("SpellDef.zig").SpellDef;
 pub const equipment = @import("Equipment.zig");
 pub const character_stats = @import("CharacterStats.zig");
-pub const races = @import("Races.zig");
 pub const Class = @import("Class.zig").Class;
 pub const Race = @import("Race.zig").Race;
 pub const PowerTypeId = @import("PowerTypeId.zig").PowerTypeId;
@@ -18,16 +15,11 @@ pub const Character = @import("./Character.zig").Character;
 pub const Player = @import("./Player.zig").Player;
 
 test {
-    _ = @import("CharacterCreate.zig");
     _ = @import("ObjectGuid.zig");
-    _ = @import("Items.zig");
-    _ = @import("Spells.zig");
-    _ = @import("InitialSpells.zig");
-    _ = @import("Class.zig");
-    _ = @import("Race.zig");
+    _ = @import("ItemDef.zig");
+    _ = @import("SpellDef.zig");
     _ = @import("Equipment.zig");
     _ = @import("CharacterStats.zig");
-    _ = @import("Races.zig");
     _ = @import("Class.zig");
     _ = @import("Race.zig");
     _ = @import("PowerTypeId.zig");

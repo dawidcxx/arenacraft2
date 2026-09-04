@@ -1,15 +1,16 @@
 const std = @import("std");
 const db = @import("db");
 const domain = @import("domain");
+const game_data = @import("game_data");
 const protocol = @import("protocol");
 const pg = @import("pg");
 const Session = @import("domain").Session;
 const WorldServerConnection = @import("./WorldServerConnection.zig").WorldServerConnection;
 
 const world = protocol.world;
-const character_create = domain.character_create;
-const items = domain.items;
-const equipment = domain.equipment;
+const character_create = game_data.character_create;
+const items = game_data.items;
+const equipment = game_data.equipment;
 
 pub fn handleDelete(
     alloc: std.mem.Allocator,

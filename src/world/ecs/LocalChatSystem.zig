@@ -1,5 +1,6 @@
 const std = @import("std");
 const domain = @import("domain");
+const game_data = @import("game_data");
 const protocol = @import("protocol");
 
 const component = @import("EcsComponent.zig");
@@ -14,7 +15,7 @@ pub fn run(map_ecs: *MapEcs, chat: EcsInput.LocalChat) !void {
 
     const guid = map_ecs.registry.getConst(component.Guid, sender).value;
     const language = switch (chat.packet.chat_type) {
-        .say, .yell => domain.races.default_language_id,
+        .say, .yell => game_data.races.default_language_id,
         else => chat.packet.language,
     };
 

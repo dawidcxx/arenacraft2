@@ -1,14 +1,16 @@
 const std = @import("std");
-const game_data = @import("game_data");
-const spells = @import("Spells.zig");
+const db = @import("game_data_db");
+const spells = @import("spells.zig");
 
-const Class = @import("Class.zig").Class;
-const Race = @import("Race.zig").Race;
+const domain = @import("domain");
 
-/// Login spell grants, from `src/game_data/initial_spells.json`. Rows say
-/// which spell a character of a given class/race receives at login; spell
-/// definitions themselves live in spells.json / Spells.zig. Restriction
-/// masks follow Class.Mask/Race.Mask (0 = wildcard).
+const Class = domain.Class;
+const Race = domain.Race;
+
+/// Login spell grants, from the game_data_db/initial_spells.json rows.
+/// Rows say which spell a character of a given class/race receives at
+/// login; spell definitions themselves live in the spells lookup.
+/// Restriction masks follow Class.Mask/Race.Mask (0 = wildcard).
 
 const GrantRow = struct {
     spell_id: u32,
@@ -72,14 +74,14 @@ pub fn grantsFor(class_id: Class, race_id: Race) GrantList {
 /// come out ascending. Unknown spell ids, mask bits outside the playable
 /// classes/races (asserted by the mask fromJson) and duplicate (spell,
 /// class, race) triples are data bugs and fail the build.
-const grant_rows: [game_data.initial_spells.rows.len]GrantRow = blk: {
+const grant_rows: [db.initial_spells.rows.len]GrantRow = blk: {
     @setEvalBranchQuota(20_000);
 
-    var sorted: [game_data.initial_spells.rows.len]game_data.initial_spells.Row = undefined;
-    @memcpy(&sorted, game_data.initial_spells.rows);
+    var sorted: [db.initial_spells.rows.len]db.initial_spells.Row = undefined;
+    @memcpy(&sorted, db.initial_spells.rows);
 
-    std.mem.sort(game_data.initial_spells.Row, &sorted, {}, struct {
-        fn lessThan(_: void, a: game_data.initial_spells.Row, b: game_data.initial_spells.Row) bool {
+    std.mem.sort(db.initial_spells.Row, &sorted, {}, struct {
+        fn lessThan(_: void, a: db.initial_spells.Row, b: db.initial_spells.Row) bool {
             return a.spell_id < b.spell_id;
         }
     }.lessThan);
@@ -101,7 +103,7 @@ const grant_rows: [game_data.initial_spells.rows.len]GrantRow = blk: {
         const a = converted[i - 1];
         const b = converted[i];
         if (a.spell_id == b.spell_id and a.class_mask.value == b.class_mask.value and a.race_mask.value == b.race_mask.value) {
-            @compileError(std.fmt.comptimePrint("duplicate initial spell grant in game_data/initial_spells.json: spell {d}", .{b.spell_id}));
+            @compileError(std.fmt.comptimePrint("duplicate initial spell grant in game_data/db/initial_spells.json: spell {d}", .{b.spell_id}));
         }
     }
 

@@ -20,8 +20,9 @@ WoW inspired PVP only MMO core, written in zig
 ├── src                      # Main zig source directory (!)
 |   | 
 │   ├── db                   # Container for DB queries
-│   ├── domain               # Leaf value types and other domain specific transferables
-│   ├── game_data            # Container of dummy game data
+│   ├── domain               # Plain data types shared across the application (ids, defs, transfer objects)
+│   ├── game_data            # Parses game_data/db rows into lookups conforming to domain types
+│   │   └── db               # Plain JSON game data, codegen'd into the game_data_db module
 │   ├── protocol             # Isolated protocol structs
 │   ├── server               # TCP server 
 │   ├── stdx                 # Collection of resuable utilities

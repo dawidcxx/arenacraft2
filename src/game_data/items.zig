@@ -1,26 +1,11 @@
+//! Item entry lookup over the game_data_db/items.json rows, conforming to
+//! domain.ItemDef. Duplicate entries fail the build.
+
 const std = @import("std");
-const game_data = @import("game_data");
+const db = @import("game_data_db");
+const domain = @import("domain");
 
-/// 3.3.5a ItemModType ids for the stats our game data carries; the item
-/// query response lists stat bonuses with these type ids.
-pub const stamina_stat_id: u32 = 7;
-pub const intellect_stat_id: u32 = 5;
-
-pub const ItemDef = struct {
-    entry: u32,
-    display_id: u32,
-    inventory_type: u8,
-    name: []const u8,
-    /// ItemClass.dbc id (armor, weapon, ...).
-    item_class: u8,
-    /// ItemSubClass.dbc id within the class (cloth, leather, ...).
-    item_subclass: u8,
-    /// Quality tier the client uses for the name color (0 poor .. 5 orange).
-    quality: u8,
-    stamina: u32,
-    intellect: u32,
-    armor: u32,
-};
+const ItemDef = domain.ItemDef;
 
 pub fn findItem(entry: u32) ?ItemDef {
     const idx = std.sort.binarySearch(
@@ -37,11 +22,11 @@ fn compareEntry(ctx: LookupCtx, item: ItemDef) std.math.Order {
     return std.math.order(ctx.key, item.entry);
 }
 
-const sorted_items: [game_data.items.rows.len]ItemDef = blk: {
+const sorted_items: [db.items.rows.len]ItemDef = blk: {
     @setEvalBranchQuota(20_000);
 
-    var arr: [game_data.items.rows.len]ItemDef = undefined;
-    for (game_data.items.rows, 0..) |row, i| {
+    var arr: [db.items.rows.len]ItemDef = undefined;
+    for (db.items.rows, 0..) |row, i| {
         arr[i] = .{
             .entry = @intCast(row.entry),
             .display_id = @intCast(row.display_id),
@@ -66,7 +51,7 @@ const sorted_items: [game_data.items.rows.len]ItemDef = blk: {
     // increasing entries; duplicates would be a game-data authoring bug.
     for (1..arr.len) |i| {
         if (arr[i].entry == arr[i - 1].entry)
-            @compileError(std.fmt.comptimePrint("duplicate item entry in game_data/items.json: {d}", .{arr[i].entry}));
+            @compileError(std.fmt.comptimePrint("duplicate item entry in game_data/db/items.json: {d}", .{arr[i].entry}));
     }
 
     break :blk arr;

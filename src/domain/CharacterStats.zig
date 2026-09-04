@@ -9,7 +9,7 @@
 
 const std = @import("std");
 const PowerTypeId = @import("PowerTypeId.zig").PowerTypeId;
-const items = @import("Items.zig");
+const ItemDef = @import("ItemDef.zig").ItemDef;
 
 pub const base_health: u32 = 1000;
 pub const base_mana: u32 = 1000;
@@ -41,7 +41,7 @@ pub const DerivedStats = struct {
 /// Sums stat contributions across equipped items and derives the power
 /// pools. `equipped` is indexed by equipment slot; unresolvable entries
 /// (missing from game data) are `null` and contribute nothing.
-pub fn derive(power_type: PowerTypeId, equipped: []const ?items.ItemDef) DerivedStats {
+pub fn derive(power_type: PowerTypeId, equipped: []const ?ItemDef) DerivedStats {
     var stats = DerivedStats{};
 
     for (equipped) |maybe_def| {
@@ -68,7 +68,7 @@ pub fn derive(power_type: PowerTypeId, equipped: []const ?items.ItemDef) Derived
 test "empty equipment keeps base health mana and armor" {
     const t = std.testing;
 
-    const equipped = [_]?items.ItemDef{null} ** 19;
+    const equipped = [_]?ItemDef{null} ** 19;
     const stats = derive(.mana, &equipped);
 
     try t.expectEqual(base_health, stats.max_health);
@@ -77,15 +77,37 @@ test "empty equipment keeps base health mana and armor" {
     try t.expectEqual([_]u32{0} ** StatIndex.count, stats.item_stats);
 }
 
+/// Stand-in for a resolved starter suit item; only the stat fields drive
+/// derive, the rest mirrors the tuxedo rows' shape.
+fn suitItem(entry: u32, stamina: u32, intellect: u32, armor: u32) ItemDef {
+    return .{
+        .entry = entry,
+        .display_id = 0,
+        .inventory_type = 0,
+        .name = "suit item",
+        .item_class = 4,
+        .item_subclass = 1,
+        .quality = 1,
+        .stamina = stamina,
+        .intellect = intellect,
+        .armor = armor,
+    };
+}
+
+fn tuxedoEquipped() [19]?ItemDef {
+    // The starter suit's tuxedo pieces (game_data/db/items.json) in their
+    // slots: chest, legs, feet.
+    var equipped: [19]?ItemDef = .{null} ** 19;
+    equipped[4] = suitItem(6834, 12, 8, 150);
+    equipped[6] = suitItem(6835, 10, 6, 120);
+    equipped[7] = suitItem(6836, 8, 4, 90);
+    return equipped;
+}
+
 test "equipped items contribute stamina intellect and armor" {
     const t = std.testing;
-    const equipment = @import("Equipment.zig");
 
-    var equipped: [19]?items.ItemDef = .{null} ** 19;
-    for (equipment.default_suit) |starter| {
-        equipped[@intFromEnum(starter.slot)] = items.findItem(starter.item_entry);
-    }
-
+    const equipped = tuxedoEquipped();
     const stats = derive(.mana, &equipped);
 
     // tuxedo: 12 + 10 + 8 stamina.
@@ -102,13 +124,8 @@ test "equipped items contribute stamina intellect and armor" {
 
 test "non-mana classes do not benefit from intellect" {
     const t = std.testing;
-    const equipment = @import("Equipment.zig");
 
-    var equipped: [19]?items.ItemDef = .{null} ** 19;
-    for (equipment.default_suit) |starter| {
-        equipped[@intFromEnum(starter.slot)] = items.findItem(starter.item_entry);
-    }
-
+    const equipped = tuxedoEquipped();
     const stats = derive(.rage, &equipped);
 
     try t.expectEqual(base_health + 30 * health_per_stamina, stats.max_health);

@@ -1,6 +1,8 @@
 const std = @import("std");
-const game_data = @import("game_data");
-const Race = @import("Race.zig").Race;
+const db = @import("game_data_db");
+const domain = @import("domain");
+
+const Race = domain.Race;
 
 /// Static ChrRaces.dbc-derived data for playable races, sourced from
 /// `src/game_data/races.json`. Faction template ids come from
@@ -80,9 +82,9 @@ const RaceEntry = struct {
     info: RaceInfo,
 };
 
-const sorted_races: [game_data.races.rows.len]RaceEntry = blk: {
-    var arr: [game_data.races.rows.len]RaceEntry = undefined;
-    for (game_data.races.rows, 0..) |row, i| {
+const sorted_races: [db.races.rows.len]RaceEntry = blk: {
+    var arr: [db.races.rows.len]RaceEntry = undefined;
+    for (db.races.rows, 0..) |row, i| {
         arr[i] = .{
             .race_id = @intCast(row.race_id),
             .info = .{

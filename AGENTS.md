@@ -10,12 +10,15 @@ Key directories:
 
 - `src/server/`: TCP auth/world servers and process entrypoint.
 - `src/protocol/`: isolated auth, world, chat, movement, update-object wire protocol code.
-- `src/domain/`: domain value types and game-specific transfer objects.
+- `src/domain/`: plain data types shared across the application (ids, defs, transfer objects). No lookups, no JSON parsing.
+- `src/game_data/`: parses the generated `game_data_db` rows into lookups conforming to domain types.
+- `src/game_data/db/`: plain JSON source data consumed by `build.zig` to generate the `game_data_db` module.
 - `src/db/`: Zig database query layer.
 - `src/world/`: game world simulation and ECS integration.
 - `src/stdx/`: shared utilities used by Zig modules.
-- `src/game_data/`: JSON source data consumed by `build.zig` to generate a Zig module.
 - `manager/src/db/migrations/sql/`: database migrations managed by the sidecar.
+
+Where to put things: plain types (id enums, def structs, transfer objects) belong in `domain`. Data mapped from a `.dbc` file belongs in `game_data/db` as JSON, with its lookup in `game_data`. Static tables that never need JSON (e.g. hardcoded client creation templates) live in `game_data` as Zig. Anything that binary-searches over rows is a `game_data` lookup, never a `domain` resident; small convenience switches on domain enums (like `Class.powerTypeId`) are fine in `domain`.
 
 ## Tooling
 
@@ -28,7 +31,7 @@ Key directories:
 
 - Start dependencies: `podman compose up -d` or `docker compose up -d`.
 - Run all Zig tests: `zig build all-test --summary all`.
-- Run one Zig module test step: `zig build protocol-test`, `zig build domain-test`, `zig build db-test`, `zig build world-test`, `zig build server-test`, or `zig build stdx-test`.
+- Run one Zig module test step: `zig build protocol-test`, `zig build domain-test`, `zig build game_data-test`, `zig build db-test`, `zig build world-test`, `zig build server-test`, or `zig build stdx-test`.
 - Run server in development: `zig build -fincremental --watch -Denable-verbose-packet-log=true server-run`.
 - Build release server: `zig build --release=fast server-build`.
 - Type-check manager: `cd manager && bun run check`.

@@ -1,5 +1,6 @@
 const std = @import("std");
 const domain = @import("domain");
+const game_data = @import("game_data");
 const protocol = @import("protocol");
 const WorldServerConnection = @import("./WorldServerConnection.zig").WorldServerConnection;
 
@@ -17,7 +18,7 @@ pub fn handleItemQuerySingle(
         return error.InvalidPacket;
     };
 
-    const def = domain.items.findItem(query.entry);
+    const def = game_data.items.findItem(query.entry);
     if (def == null) {
         std.log.debug("world: item query for unknown entry={d}", .{query.entry});
     }
