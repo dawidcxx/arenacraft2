@@ -14,6 +14,7 @@ const Session = domain.Session;
 const character_commands = world_handler.character;
 const login_handler = world_handler.login;
 const item_handler = world_handler.item;
+const spell_handler = world_handler.spell;
 
 pub const log = std.log.scoped(.world_server);
 
@@ -313,6 +314,26 @@ fn dispatchPacket(
         },
         .cmsg_item_query_single => {
             return try item_handler.handleItemQuerySingle(alloc, conn, payload_scratch_buf);
+        },
+        .cmsg_cast_spell => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleCastSpell(io, player, payload_scratch_buf);
+        },
+        .cmsg_attackswing => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleAttackSwing(io, player, payload_scratch_buf);
+        },
+        .cmsg_attackstop => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleAttackStop(io, player);
+        },
+        .cmsg_cancel_cast => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleCancelCast(io, player, payload_scratch_buf);
+        },
+        .cmsg_set_sheathed => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleSetSheathed(io, player, payload_scratch_buf);
         },
         else => {
             return log.warn("Unhandled opcode in #dispatchPacket (opcode=0x{X}, account={s})", .{ header.opcode, session.account });
