@@ -1,6 +1,8 @@
 pub const ObjectGuid = @import("ObjectGuid.zig").ObjectGuid;
 pub const ItemDef = @import("ItemDef.zig").ItemDef;
 pub const SpellDef = @import("SpellDef.zig").SpellDef;
+pub const SkillDef = @import("SkillDef.zig").SkillDef;
+pub const SkillGrant = @import("SkillDef.zig").SkillGrant;
 pub const equipment = @import("Equipment.zig");
 pub const character_stats = @import("CharacterStats.zig");
 pub const Class = @import("Class.zig").Class;
@@ -18,6 +20,7 @@ test {
     _ = @import("ObjectGuid.zig");
     _ = @import("ItemDef.zig");
     _ = @import("SpellDef.zig");
+    _ = @import("SkillDef.zig");
     _ = @import("Equipment.zig");
     _ = @import("CharacterStats.zig");
     _ = @import("Class.zig");

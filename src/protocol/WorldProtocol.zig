@@ -1385,6 +1385,15 @@ pub const PlayerCreateServer = struct {
 
     pub fn marshal(self: PlayerCreateServer, allocator: std.mem.Allocator) ![]u8 {
         const character = self.character;
+
+        // Skill pane rows ride only on the creating client's packet; other
+        // clients don't need the player's skill book. The grant list is a
+        // local so the slice outlives pkt.add.
+        var skill_grants = game_data.initial_skills.GrantList{};
+        if (self.self_update) {
+            skill_grants = game_data.initial_skills.grantsFor(character.class_id, character.race_id);
+        }
+
         var pkt = try update_object.UpdateObject.init(allocator);
         defer pkt.deinit(allocator);
         try pkt.add(allocator, .{ .create_object2 = .{ .player_create = .{
@@ -1412,7 +1421,7 @@ pub const PlayerCreateServer = struct {
             .faction_template = game_data.races.factionTemplate(character.race_id),
             .display_id = game_data.races.displayId(character.race_id, character.gender),
             .visible_items = self.visible_items,
-            .language_skill_ids = game_data.races.languageSkillIds(character.race_id),
+            .skill_rows = skill_grants.slice(),
             .time_ms = self.time_ms,
             .self_update = self.self_update,
         } } });

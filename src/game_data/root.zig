@@ -6,6 +6,8 @@ pub const character_create = @import("character_create.zig");
 pub const items = @import("items.zig");
 pub const spells = @import("spells.zig");
 pub const initial_spells = @import("initial_spells.zig");
+pub const skills = @import("skills.zig");
+pub const initial_skills = @import("initial_skills.zig");
 pub const equipment = @import("equipment.zig");
 pub const races = @import("races.zig");
 
@@ -14,6 +16,8 @@ test {
     _ = @import("items.zig");
     _ = @import("spells.zig");
     _ = @import("initial_spells.zig");
+    _ = @import("skills.zig");
+    _ = @import("initial_skills.zig");
     _ = @import("equipment.zig");
     _ = @import("races.zig");
 }

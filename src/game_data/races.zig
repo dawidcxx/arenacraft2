@@ -39,40 +39,6 @@ pub fn factionTemplate(race_id: Race) u32 {
     return info.faction_template;
 }
 
-pub fn languageSpellIds(race_id: Race) []const u32 {
-    return switch (race_id) {
-        .human => &.{668},
-        .orc => &.{669},
-        .dwarf => &.{ 668, 672 },
-        .night_elf => &.{ 668, 671 },
-        .undead => &.{ 669, 17737 },
-        .tauren => &.{ 669, 670 },
-        .gnome => &.{ 668, 7340 },
-        .troll => &.{ 669, 7341 },
-        .blood_elf => &.{ 669, 813 },
-        .draenei => &.{ 668, 29932 },
-    };
-}
-
-pub fn languageSkillIds(race_id: Race) []const u16 {
-    return switch (race_id) {
-        .human => &.{98},
-        .orc => &.{109},
-        .dwarf => &.{ 98, 111 },
-        .night_elf => &.{ 98, 113 },
-        .undead => &.{ 109, 673 },
-        .tauren => &.{ 109, 115 },
-        .gnome => &.{ 98, 313 },
-        .troll => &.{ 109, 315 },
-        .blood_elf => &.{ 109, 137 },
-        .draenei => &.{ 98, 759 },
-    };
-}
-
-/// Chat language used for /say and /yell. PvP is faction-agnostic, so every
-/// player speaks Common regardless of race.
-pub const default_language_id: u32 = 7;
-
 pub fn compareRaceId(ctx: LookupCtx, entry: RaceEntry) std.math.Order {
     return std.math.order(ctx.key, entry.race_id);
 }
@@ -110,19 +76,10 @@ test "race data covers playable race ids" {
     inline for (@typeInfo(Race).@"enum".fields) |field| {
         const race_id: Race = @enumFromInt(field.value);
         try std.testing.expect(raceInfo(race_id) != null);
-        try std.testing.expect(languageSpellIds(race_id).len > 0);
-        try std.testing.expect(languageSkillIds(race_id).len > 0);
     }
 
     try std.testing.expectEqual(@as(u32, 1), factionTemplate(.human));
     try std.testing.expectEqual(@as(u32, 1629), factionTemplate(.draenei));
     try std.testing.expectEqual(@as(u32, 49), displayId(.human, 0));
     try std.testing.expectEqual(@as(u32, 15475), displayId(.blood_elf, 1));
-    try std.testing.expectEqualSlices(u32, &.{668}, languageSpellIds(.human));
-    try std.testing.expectEqualSlices(u16, &.{98}, languageSkillIds(.human));
-    try std.testing.expectEqual(@as(u32, 7), default_language_id);
-    try std.testing.expectEqualSlices(u32, &.{ 668, 672 }, languageSpellIds(.dwarf));
-    try std.testing.expectEqualSlices(u16, &.{ 98, 111 }, languageSkillIds(.dwarf));
-    try std.testing.expectEqualSlices(u32, &.{ 669, 670 }, languageSpellIds(.tauren));
-    try std.testing.expectEqualSlices(u16, &.{ 109, 115 }, languageSkillIds(.tauren));
 }

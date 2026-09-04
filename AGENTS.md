@@ -45,4 +45,5 @@ Where to put things: plain types (id enums, def structs, transfer objects) belon
 - Avoid AzerothCore it's badly coded
 - Be efficient on tokens, feel free to bail out early and prompt the user for input
 - Assume the user is a expert developer that can guide you with architectural decisions
+- Updating `docs/*.md` is allowed and encouraged for durable knowledge (protocol quirks, debugging sessions, gotchas). Keep it short and only write down things that don't rot: no call-site inventories, line numbers, or summaries of code that will move. A wrong doc is worse than no doc.
 

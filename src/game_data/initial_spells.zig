@@ -70,6 +70,16 @@ pub fn grantsFor(class_id: Class, race_id: Race) GrantList {
     return list;
 }
 
+/// Whether any grant row references `spell_id`, regardless of masks.
+/// Used to detect spells granted by both the spell and skill data files,
+/// which would reach the client as duplicate spellbook entries.
+pub fn grantsSpellId(spell_id: u32) bool {
+    for (grant_rows) |row| {
+        if (row.spell_id == spell_id) return true;
+    }
+    return false;
+}
+
 /// JSON rows converted to domain types, sorted by spell id so grant lists
 /// come out ascending. Unknown spell ids, mask bits outside the playable
 /// classes/races (asserted by the mask fromJson) and duplicate (spell,

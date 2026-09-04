@@ -105,7 +105,6 @@ fn playerEntityToPlayerCreate(reg: *ecs.Registry, player: ecs.Entity, time_ms: u
         .display_id = game_data.races.displayId(appearance.race_id, appearance.gender),
         .visible_items = reg.getConst(component.VisibleItems, player).entries,
         .item_guids = reg.getConst(component.VisibleItems, player).guids,
-        .language_skill_ids = game_data.races.languageSkillIds(appearance.race_id),
         .time_ms = time_ms,
         .self_update = false,
     };

@@ -1,11 +1,12 @@
 const std = @import("std");
 const domain = @import("domain");
-const game_data = @import("game_data");
 const protocol = @import("protocol");
 
 const component = @import("EcsComponent.zig");
 const EcsInput = @import("EcsInput.zig");
 const MapEcs = @import("MapEcs.zig").MapEcs;
+
+const placeholder_common_language: u32 = 7;
 
 pub fn run(map_ecs: *MapEcs, chat: EcsInput.LocalChat) !void {
     const sender = map_ecs.findPlayer(chat.account_id) orelse {
@@ -15,7 +16,7 @@ pub fn run(map_ecs: *MapEcs, chat: EcsInput.LocalChat) !void {
 
     const guid = map_ecs.registry.getConst(component.Guid, sender).value;
     const language = switch (chat.packet.chat_type) {
-        .say, .yell => game_data.races.default_language_id,
+        .say, .yell => placeholder_common_language,
         else => chat.packet.language,
     };
 
