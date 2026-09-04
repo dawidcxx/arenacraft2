@@ -50,6 +50,17 @@ pub fn handleCancelCast(
     map.pushCancelCastAsync(io, .{ .account_id = player.account_id, .packet = packet });
 }
 
+/// CMSG_SET_SHEATHED: the client drew/undrew weapons; store and propagate.
+pub fn handleSetSheathed(
+    io: std.Io,
+    player: *domain.Player,
+    payload: []u8,
+) !void {
+    const packet = try protocol.spell.SetSheathedClient.unmarshal(payload);
+    const map = mapFor(player) orelse return;
+    map.pushSetSheathedAsync(io, .{ .account_id = player.account_id, .packet = packet });
+}
+
 fn mapFor(player: *domain.Player) ?*world.MapInstance {
     const map_reference: ?*world.MapInstance = @ptrCast(@alignCast(player.active_map_reference));
     if (map_reference == null) {

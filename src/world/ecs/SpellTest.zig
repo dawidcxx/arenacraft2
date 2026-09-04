@@ -50,6 +50,7 @@ const PlayerHarness = struct {
         map_ecs.registry.add(entity, component.Orientation{ .value = 0 });
         map_ecs.registry.add(entity, component.Level{ .value = 1 });
         map_ecs.registry.add(entity, component.Health{ .current = 100 });
+        map_ecs.registry.add(entity, component.Sheath{ .state = 0 });
         self.entity = entity;
     }
 
@@ -362,6 +363,123 @@ test "displacing movement interrupts the running cast" {
     // sure it does not crash or resurrect casts).
     try map_ecs.run(frame(&clock, 1200, arena));
     try t.expectEqual(@as(usize, 0), countComponents(&map_ecs, component.SpellCast));
+}
+
+test "frostbolt kills low-health targets and death cleans up combat" {
+    const t = std.testing;
+    const arena = beginTest();
+    defer TestState.arena_state.deinit();
+    var clock = stdx.Clock.init(io);
+
+    var map_ecs = try MapEcs.init(alloc);
+    defer map_ecs.deinit();
+
+    var caster: PlayerHarness = .{};
+    try caster.add(&map_ecs, 1, 1, 0);
+    var victim: PlayerHarness = .{};
+    try victim.add(&map_ecs, 2, 2, 5);
+    // One frostbolt (18..20) is lethal at this health.
+    map_ecs.registry.get(component.Health, victim.entity).*.current = 15;
+
+    // The victim is auto attacking the caster when the killing blow lands.
+    map_ecs.registry.add(victim.entity, component.Attacking{
+        .target = caster.entity,
+        .next_swing_ms = 9999,
+    });
+
+    castFrostbolt(&map_ecs, 1, domain.ObjectGuid.player(2));
+    try map_ecs.run(frame(&clock, 1000, arena)); // start
+    try map_ecs.run(frame(&clock, 2501, arena)); // hit
+
+    // Dead: health zero, combat cleaned up, slow aura not applied.
+    try t.expectEqual(@as(u32, 0), map_ecs.registry.getConst(component.Health, victim.entity).current);
+    try t.expectEqual(@as(usize, 0), countComponents(&map_ecs, component.Attacking));
+    try t.expectEqual(@as(usize, 0), countComponents(&map_ecs, component.Aura));
+    try t.expectEqual(@as(usize, 0), countComponents(&map_ecs, component.SpellCast));
+
+    // Victim inbox: start, go, damage log, killing-blow health update,
+    // death values update, attack stop (it was attacking the caster).
+    // The victim was not casting, so no interrupt packets fire.
+    _ = try victim.receive(); // start
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_spell_go), (try victim.receive()).send.opcode);
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_spellnonmeleedamagelog), (try victim.receive()).send.opcode);
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_update_object), (try victim.receive()).send.opcode); // killing blow health
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_update_object), (try victim.receive()).send.opcode); // death (health+power 0)
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_attackstop), (try victim.receive()).send.opcode);
+
+    // The victim was attacking: its attack stop broadcast reaches the
+    // caster too (after the caster's own copies of the broadcast stream).
+    _ = try caster.receive(); // start
+    _ = try caster.receive(); // go
+    _ = try caster.receive(); // nonmelee
+    _ = try caster.receive(); // health update
+    _ = try caster.receive(); // death update
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_attackstop), (try caster.receive()).send.opcode);
+
+    // A dead target cannot be cast on.
+    castFrostbolt(&map_ecs, 1, domain.ObjectGuid.player(2));
+    try map_ecs.run(frame(&clock, 2600, arena));
+    const failed = try caster.receive();
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_cast_failed), failed.send.opcode);
+    try t.expectEqual(@as(u8, 109), failed.send.body.get()[5]); // targets_dead
+}
+
+test "melee swings stop when the target dies" {
+    const t = std.testing;
+    const arena = beginTest();
+    defer TestState.arena_state.deinit();
+    var clock = stdx.Clock.init(io);
+
+    var map_ecs = try MapEcs.init(alloc);
+    defer map_ecs.deinit();
+
+    var attacker: PlayerHarness = .{};
+    try attacker.add(&map_ecs, 1, 1, 0);
+    var victim: PlayerHarness = .{};
+    try victim.add(&map_ecs, 2, 2, 3);
+    map_ecs.registry.get(component.Health, victim.entity).*.current = 1; // any swing kills
+
+    map_ecs.addInput(.{ .attack_swing = .{ .account_id = 1, .packet = .{
+        .target_guid = domain.ObjectGuid.player(2),
+    } } });
+    try map_ecs.run(frame(&clock, 1000, arena));
+
+    try t.expectEqual(@as(u32, 0), map_ecs.registry.getConst(component.Health, victim.entity).current);
+    try t.expectEqual(@as(usize, 0), countComponents(&map_ecs, component.Attacking));
+
+    // The attacker's client got the attack stop; further swings on the
+    // corpse are rejected with another attack stop.
+    map_ecs.addInput(.{ .attack_swing = .{ .account_id = 1, .packet = .{
+        .target_guid = domain.ObjectGuid.player(2),
+    } } });
+    try map_ecs.run(frame(&clock, 1100, arena));
+    try t.expectEqual(@as(usize, 0), countComponents(&map_ecs, component.Attacking));
+}
+
+test "set sheathed updates the state and broadcasts bytes_2" {
+    const t = std.testing;
+    const arena = beginTest();
+    defer TestState.arena_state.deinit();
+    var clock = stdx.Clock.init(io);
+
+    var map_ecs = try MapEcs.init(alloc);
+    defer map_ecs.deinit();
+
+    var player: PlayerHarness = .{};
+    try player.add(&map_ecs, 1, 1, 0);
+
+    map_ecs.addInput(.{ .set_sheathed = .{ .account_id = 1, .packet = .{ .sheath_state = 1 } } });
+    try map_ecs.run(frame(&clock, 1000, arena));
+
+    try t.expectEqual(@as(u8, 1), map_ecs.registry.getConst(component.Sheath, player.entity).state);
+    // The bytes_2 values update reaches the other clients.
+    const update = try player.receive();
+    try t.expectEqual(@intFromEnum(protocol.world.Opcode.smsg_update_object), update.send.opcode);
+    // body: block count 1, VALUES, packed guid, 1 mask block, bit 122 set,
+    // value = pvp|ffa|sheath.
+    const body = update.send.body.get();
+    try t.expectEqual(@as(u8, 0), body[4]); // update type values
+    try t.expectEqual(@as(u32, 0x501), std.mem.readInt(u32, body[body.len - 4 ..][0..4], .little));
 }
 
 test "aura is dropped when its target despawns" {

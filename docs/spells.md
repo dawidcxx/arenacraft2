@@ -134,10 +134,35 @@ appended to the language spells in the login `SMSG_INITIAL_SPELLS`.
 3. The client renders cast bar/missile/debuff icon from its own Spell.dbc —
    the server only needs the timings above to stay consistent with it.
 
+## Death (v1)
+
+Health reaching zero is death. `handleDeath` mirrors the retail kill flow
+(`Unit::setDeathState` + `Player::KillPlayer`):
+
+- VALUES update: health 0 + current power 0 (the client renders the death
+  pose from the health field).
+- The victim's cast and auto attack stop (interrupt packets + attack stop).
+- Everyone attacking the victim gets their attacking state dropped and an
+  attack stop broadcast.
+- All auras on the victim are removed (slot-clear updates).
+
+Dead units reject casts (`SPELL_FAILED_TARGETS_DEAD` = 109; a dead caster
+gets `SPELL_FAILED_CASTER_DEAD` = 23) and swings (attack stop). There is no
+corpse/release/ghost flow yet — **relogging resurrects** (health is
+recomputed from stats at join).
+
+## Sheath state
+
+`CMSG_SET_SHEATHED` (0x1E0, u32 SheathState 0/1/2) is stored in the
+`Sheath` component and broadcast as a `UNIT_FIELD_BYTES_2` values update
+(byte 0), so other clients see weapons drawn/undrawn. The player create
+field set includes it too.
+
 ## Deliberate v1 omissions (followup hooks)
 
 - No miss/dodge/parry/crit rolls; every hit lands.
 - No mana cost or GCD enforcement (frostbolt is free by design for now).
-- No death/corpse handling; health floors at 1.
+- Death has no corpse/release/ghost flow; the dead player can still move
+  and relogging resurrects.
 - No combat-log gating by visibility: damage/aura packets broadcast map-wide.
 - Casts do not validate facing or line of sight; range only.

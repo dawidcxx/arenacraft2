@@ -30,6 +30,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
             .attack_swing => |swing| try SpellSystem.handleSwing(map_ecs, frame, swing),
             .attack_stop => |stop| try SpellSystem.handleStop(map_ecs, frame, stop),
             .cancel_cast => |cancel| try SpellSystem.handleCancelCast(map_ecs, cancel),
+            .set_sheathed => |sheathed| try SpellSystem.handleSheath(map_ecs, frame, sheathed),
         }
     }
 }
@@ -85,6 +86,7 @@ fn createPlayerEntity(reg: *ecs.Registry, player: *domain.Player) ecs.Entity {
     reg.add(entity, component.Level{ .value = character.level });
     reg.add(entity, component.Stats{ .derived = character.derived });
     reg.add(entity, component.Health{ .current = character.derived.max_health });
+    reg.add(entity, component.Sheath{ .state = 0 });
 
     return entity;
 }

@@ -32,6 +32,11 @@ pub const CancelCast = struct {
     packet: protocol.spell.CancelCastClient,
 };
 
+pub const SetSheathed = struct {
+    account_id: u64,
+    packet: protocol.spell.SetSheathedClient,
+};
+
 pub const InboxMsg = union(enum) {
     player_join: struct {
         signal: *std.Io.Semaphore,
@@ -47,4 +52,5 @@ pub const InboxMsg = union(enum) {
     attack_swing: AttackSwing,
     attack_stop: AttackStop,
     cancel_cast: CancelCast,
+    set_sheathed: SetSheathed,
 };

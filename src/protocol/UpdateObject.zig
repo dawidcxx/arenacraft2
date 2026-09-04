@@ -602,6 +602,8 @@ pub const PlayerCreate = struct {
     base_mana: u32 = domain.character_stats.base_mana,
     /// Raw health pool floor the client renders alongside max health.
     base_health: u32 = domain.character_stats.base_health,
+    /// SheathState (bytes_2 byte 0): weapons drawn pose, client-driven.
+    sheath_state: u8 = 0,
     faction_template: u32,
     display_id: u32,
     visible_items: [19]u32 = .{0} ** 19,
@@ -664,7 +666,7 @@ pub const PlayerCreate = struct {
         if (self.power_type == @intFromEnum(domain.PowerTypeId.mana)) {
             fields.set(UnitField.base_mana, self.base_mana);
         }
-        fields.set(UnitField.bytes_2, unit_bytes_2_pvp);
+        fields.set(UnitField.bytes_2, bytes2FieldValue(self.sheath_state));
         fields.set(PlayerField.appearance, packedBytes(self.skin, self.face, self.hair_style, self.hair_color));
         fields.set(PlayerField.facial_hair, self.facial_hair);
         fields.set(PlayerField.gender, self.gender);
@@ -923,11 +925,16 @@ fn packedU16(low: u16, high: u16) u32 {
 }
 
 /// UNIT_FIELD_BYTES_2 byte flags the client uses to decide attackability.
-/// Byte 0 (0x0100): PvP enabled — renders the PvP state (name plates,
-/// arena frames). Byte 1 (0x0400): free-for-all PvP — every FFA-flagged
-/// unit is attackable by every other, which is what turns players hostile
-/// to each other in the arena scope.
+/// Byte 0 (0x0001-0x0002): SheathState (weapons drawn pose), synced from
+/// CMSG_SET_SHEATHED. Byte 1 (0x0100|0x0400): PvP + free-for-all PvP —
+/// every FFA-flagged unit is attackable by every other, which is what
+/// turns players hostile in the arena scope.
 const unit_bytes_2_pvp: u32 = 0x0000_0100 | 0x0000_0400;
+
+/// UNIT_FIELD_BYTES_2 with the SheathState byte (byte 0) combined in.
+pub fn bytes2FieldValue(sheath_state: u8) u32 {
+    return unit_bytes_2_pvp | sheath_state;
+}
 
 /// UNIT_FLAG_PLAYER_CONTROLLED (0x8) in UNIT_FIELD_FLAGS: marks the unit as
 /// player-controlled. The client's Unit::CanAttack equivalent requires it

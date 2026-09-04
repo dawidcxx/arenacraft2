@@ -30,13 +30,13 @@ pub const client_cast_flag_projectile: u8 = 0x02;
 
 /// SpellCastResult codes the server sends in SMSG_CAST_FAILED.
 pub const CastFailedCode = enum(u8) {
+    caster_dead = 23,
+    interrupted = 40,
     bad_implicit_targets = 11,
     not_known = 63,
     out_of_range = 97,
     spell_in_progress = 105,
-    /// Cast interrupted (movement, cancel, ...) — also the result carried
-    /// by SMSG_SPELL_FAILURE / SMSG_SPELL_FAILED_OTHER.
-    interrupted = 40,
+    targets_dead = 109,
 };
 
 /// AuraFlags for SMSG_AURA_UPDATE (AFLAG_*).
@@ -118,6 +118,21 @@ pub const AttackStopClient = struct {
     pub fn unmarshal(bytes: []const u8) ProtocolError!AttackStopClient {
         _ = bytes;
         return .{};
+    }
+};
+
+/// CMSG_SET_SHEATHED (0x1E0): the client drew/undrew the caster's weapons.
+/// u32 SheathState (0 unarmed, 1 melee, 2 ranged); the reference core
+/// stores it in UNIT_FIELD_BYTES_2 byte 0, which propagates the pose to
+/// other clients.
+pub const SetSheathedClient = struct {
+    sheath_state: u8,
+
+    pub fn unmarshal(bytes: []const u8) ProtocolError!SetSheathedClient {
+        if (bytes.len < 4) return ProtocolError.InvalidMessage;
+        const raw = std.mem.readInt(u32, bytes[0..4], .little);
+        if (raw > 2) return ProtocolError.InvalidMessage;
+        return .{ .sheath_state = @intCast(raw) };
     }
 };
 
@@ -559,6 +574,18 @@ test "cancel cast skips the counter and reads the spell id" {
 
     const parsed = try CancelCastClient.unmarshal(&buf);
     try t.expectEqual(@as(u32, 116), parsed.spell_id);
+}
+
+test "set sheathed reads the u32 state and rejects unknown states" {
+    const t = std.testing;
+
+    var buf: [4]u8 = undefined;
+    std.mem.writeInt(u32, &buf, 1, .little);
+    const parsed = try SetSheathedClient.unmarshal(&buf);
+    try t.expectEqual(@as(u8, 1), parsed.sheath_state);
+
+    std.mem.writeInt(u32, &buf, 3, .little);
+    try t.expectError(ProtocolError.InvalidMessage, SetSheathedClient.unmarshal(&buf));
 }
 
 test "cast spell client accepts self cast without target" {

@@ -74,6 +74,12 @@ pub const MapInstance = struct {
         };
     }
 
+    pub fn pushSetSheathedAsync(self: *Self, io: std.Io, request: MapInstanceInbox.SetSheathed) void {
+        self.inbox.putOne(io, .{ .set_sheathed = request }) catch |e| {
+            log.info("Dropping .pushSetSheathedAsync, reason='{}'", .{e});
+        };
+    }
+
     pub fn joinPlayer(
         self: *Self,
         io: std.Io,
@@ -153,6 +159,9 @@ pub const MapInstance = struct {
                         },
                         .cancel_cast => |cancel| {
                             self.map_ecs.addInput(.{ .cancel_cast = .{ .account_id = cancel.account_id, .packet = cancel.packet } });
+                        },
+                        .set_sheathed => |sheathed| {
+                            self.map_ecs.addInput(.{ .set_sheathed = .{ .account_id = sheathed.account_id, .packet = sheathed.packet } });
                         },
                     }
 

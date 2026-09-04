@@ -31,9 +31,13 @@ pub const Level = struct { value: u8 };
 /// Mirrors domain.Character.derived: stats computed from equipped items.
 pub const Stats = struct { derived: domain.character_stats.DerivedStats };
 
-/// Current hit points. Damage subtracts here; the wire health field is
-/// refreshed through a VALUES update block on every change.
+/// Current hit points. Damage subtracts here; reaching zero is death.
 pub const Health = struct { current: u32 };
+
+/// Weapon sheath state (UNIT_FIELD_BYTES_2 byte 0, SheathState): 0 unarmed,
+/// 1 melee drawn, 2 ranged drawn. Client-driven via CMSG_SET_SHEATHED;
+/// propagated to other clients so weapon draw poses stay in sync.
+pub const Sheath = struct { state: u8 = 0 };
 
 /// Live spell cast (spell entity). Spawned when a cast starts, ticked by
 /// SpellSystem until finish_ms, then destroyed after effects apply.

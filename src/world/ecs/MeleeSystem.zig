@@ -30,9 +30,11 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
         const target_still_there = registry.valid(attacking.target) and
             registry.has(component.Health, attacking.target) and
             registry.has(component.Guid, attacking.target);
-        if (!target_still_there) {
-            // Target despawned; stop attacking so the client drops its
-            // swing state too.
+        if (!target_still_there or
+            registry.getConst(component.Health, attacking.target).current == 0)
+        {
+            // Target despawned or died; stop attacking so the client drops
+            // its swing state too.
             const attacker_guid = registry.getConst(component.Guid, attacker).value;
             registry.removeIfExists(component.Attacking, attacker);
             try map_ecs.broadcast(.{ attacker, .{ .ignore_sender = false } }, protocol.spell.AttackStopServer{
@@ -54,7 +56,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
 
         const def = domain.spells.findSpell(6603) orelse continue;
         const damage = SpellSystem.rollDamage(frame.io, def.min_damage, def.max_damage);
-        SpellSystem.applyDamage(registry, attacking.target, damage);
+        const died = SpellSystem.applyDamage(registry, attacking.target, damage);
 
         try map_ecs.broadcast(.{ attacker, .{ .ignore_sender = false } }, protocol.spell.AttackerStateUpdateServer{
             .school_mask = def.school,
@@ -64,6 +66,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
         });
 
         try SpellSystem.sendHealthUpdate(map_ecs, frame, attacker, attacking.target);
+        if (died) try SpellSystem.handleDeath(map_ecs, frame, attacking.target);
     }
 }
 

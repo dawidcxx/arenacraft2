@@ -331,6 +331,10 @@ fn dispatchPacket(
             const player = player_ref.*.?;
             return try spell_handler.handleCancelCast(io, player, payload_scratch_buf);
         },
+        .cmsg_set_sheathed => {
+            const player = player_ref.*.?;
+            return try spell_handler.handleSetSheathed(io, player, payload_scratch_buf);
+        },
         // UI/lifecycle chatter with no server behavior yet; swallowing by
         // name keeps the unhandled-opcode warning meaningful.
         .cmsg_join_channel,
@@ -338,7 +342,6 @@ fn dispatchPacket(
         .cmsg_set_selection,
         .cmsg_played_time,
         .cmsg_query_time,
-        .cmsg_set_sheathed,
         .cmsg_zoneupdate,
         .cmsg_gmticket_getticket,
         .cmsg_battlefield_list,

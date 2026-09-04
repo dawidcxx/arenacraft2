@@ -17,6 +17,7 @@ pub const SpellCast = struct { account_id: u64, packet: protocol.spell.CastSpell
 pub const AttackSwing = struct { account_id: u64, packet: protocol.spell.AttackSwingClient };
 pub const AttackStop = struct { account_id: u64 };
 pub const CancelCast = struct { account_id: u64, packet: protocol.spell.CancelCastClient };
+pub const SetSheathed = struct { account_id: u64, packet: protocol.spell.SetSheathedClient };
 
 pub const Input = union(enum) {
     player_join: struct {
@@ -31,6 +32,7 @@ pub const Input = union(enum) {
     attack_swing: AttackSwing,
     attack_stop: AttackStop,
     cancel_cast: CancelCast,
+    set_sheathed: SetSheathed,
 };
 
 pub const EcsEventType = enum {

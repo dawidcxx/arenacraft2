@@ -36,6 +36,13 @@ pub fn handleCast(map_ecs: *MapEcs, frame: MapEcs.Frame, cast: EcsInput.SpellCas
         return sendCastFailed(map_ecs, caster, cast.packet.cast_count, cast.packet.spell_id, .not_known);
     };
 
+    // Dead casters cannot cast.
+    if (registry.has(component.Health, caster) and
+        registry.getConst(component.Health, caster).current == 0)
+    {
+        return sendCastFailed(map_ecs, caster, cast.packet.cast_count, def.entry, .caster_dead);
+    }
+
     // Auto attack is driven by CMSG_ATTACKSWING, not the cast pipeline.
     if (def.is_melee) {
         log.debug("cast of melee spell '{s}' ignored; auto attack uses CMSG_ATTACKSWING", .{def.name});
@@ -52,6 +59,13 @@ pub fn handleCast(map_ecs: *MapEcs, frame: MapEcs.Frame, cast: EcsInput.SpellCas
     // Enemy spells cannot target the caster.
     if (target == caster) {
         return sendCastFailed(map_ecs, caster, cast.packet.cast_count, def.entry, .bad_implicit_targets);
+    }
+
+    // Dead targets cannot be cast on.
+    if (registry.has(component.Health, target) and
+        registry.getConst(component.Health, target).current == 0)
+    {
+        return sendCastFailed(map_ecs, caster, cast.packet.cast_count, def.entry, .targets_dead);
     }
 
     // Only one cast at a time per caster.
@@ -100,9 +114,11 @@ pub fn handleSwing(map_ecs: *MapEcs, frame: MapEcs.Frame, swing: EcsInput.Attack
         });
     };
 
-    // Self and non-attackable targets (anything without health) reject the
-    // swing with an attack stop so the client drops its swing state.
-    if (target == attacker or !registry.has(component.Health, target)) {
+    // Self and dead targets reject the swing with an attack stop so the
+    // client drops its swing state.
+    const target_dead = registry.has(component.Health, target) and
+        registry.getConst(component.Health, target).current == 0;
+    if (target == attacker or target_dead or !registry.has(component.Health, target)) {
         return try map_ecs.broadcast(.{ attacker, .{ .ignore_sender = false } }, protocol.spell.AttackStopServer{
             .attacker_guid = registry.getConst(component.Guid, attacker).value,
             .victim_guid = null,
@@ -185,8 +201,7 @@ pub fn interruptCast(map_ecs: *MapEcs, caster: Entity, spell_filter: ?u32) !void
     }
 }
 
-pub fn handleCancelCast(map_ecs: *MapEcs, cancel: EcsInput.CancelCast) !void {
-    const caster = map_ecs.findPlayer(cancel.account_id) orelse return;
+pub fn handleCancelCast(map_ecs: *MapEcs, cancel: EcsInput.CancelCast) !void {    const caster = map_ecs.findPlayer(cancel.account_id) orelse return;
 
     // Client-initiated cancel (ESC): retail also acknowledges with
     // SMSG_CAST_FAILED(interrupted) to the caster, then broadcasts the
@@ -213,6 +228,25 @@ pub fn handleCancelCast(map_ecs: *MapEcs, cancel: EcsInput.CancelCast) !void {
     return interruptCast(map_ecs, caster, cancel.packet.spell_id);
 }
 
+/// CMSG_SET_SHEATHED: stores the client-driven weapon pose and propagates
+/// it through a bytes_2 values update so other clients see the draw.
+pub fn handleSheath(map_ecs: *MapEcs, frame: MapEcs.Frame, sheathed: EcsInput.SetSheathed) !void {
+    const registry = &map_ecs.registry;
+
+    const player = map_ecs.findPlayer(sheathed.account_id) orelse return;
+    registry.get(component.Sheath, player).*.state = sheathed.packet.sheath_state;
+
+    var fields = protocol.object.Fields{};
+    fields.set(protocol.object.UnitField.bytes_2, protocol.object.bytes2FieldValue(sheathed.packet.sheath_state));
+    var pkt = try protocol.object.UpdateObject.init(frame.arena_allocator);
+    defer pkt.deinit(frame.arena_allocator);
+    try pkt.add(frame.arena_allocator, .{ .values = .{
+        .guid = registry.getConst(component.Guid, player).value,
+        .fields = fields,
+    } });
+    try map_ecs.broadcast(.{ player, .{ .ignore_sender = false } }, pkt);
+}
+
 /// Progresses every live cast; finished casts apply their effects and die.
 pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     const registry = &map_ecs.registry;
@@ -230,12 +264,14 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
         const def = domain.spells.findSpell(cast.spell_entry) orelse continue;
         if (!registry.valid(cast.caster) or !registry.valid(cast.target)) continue;
         if (!registry.has(component.Health, cast.target)) continue;
+        // Dead targets take no further effect from a cast finishing.
+        if (registry.getConst(component.Health, cast.target).current == 0) continue;
 
         const caster_guid = registry.getConst(component.Guid, cast.caster).value;
         const target_guid = registry.getConst(component.Guid, cast.target).value;
 
         const damage = rollDamage(frame.io, def.min_damage, def.max_damage);
-        applyDamage(registry, cast.target, damage);
+        const died = applyDamage(registry, cast.target, damage);
 
         try map_ecs.broadcast(.{ cast.caster, .{ .ignore_sender = false } }, protocol.spell.SpellGoServer{
             .caster_guid = caster_guid,
@@ -256,7 +292,9 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
 
         try sendHealthUpdate(map_ecs, frame, cast.caster, cast.target);
 
-        if (def.movement_slow_pct > 0 and def.aura_duration_ms > 0) {
+        if (died) {
+            try handleDeath(map_ecs, frame, cast.target);
+        } else if (def.movement_slow_pct > 0 and def.aura_duration_ms > 0) {
             try applyAura(map_ecs, frame, .{
                 .target = cast.target,
                 .caster = cast.caster,
@@ -421,12 +459,70 @@ pub fn sendHealthUpdate(map_ecs: *MapEcs, frame: MapEcs.Frame, sender: Entity, t
     try map_ecs.broadcast(.{ sender, .{ .ignore_sender = false } }, pkt);
 }
 
-/// v1 has no death/corpse handling: health bottoms out at this floor.
-pub const health_floor: u32 = 1;
-
-pub fn applyDamage(registry: *ecs.Registry, target: Entity, damage: u32) void {
+/// v1 death: zero health is dead. The client renders the death pose from
+/// the health field; a relogin resurrects (health recomputed from stats).
+pub fn applyDamage(registry: *ecs.Registry, target: Entity, damage: u32) bool {
     const health = registry.get(component.Health, target);
-    health.*.current = @max(health.current -| damage, health_floor);
+    if (health.current == 0) return false;
+    health.*.current = health.current -| damage;
+    return health.current == 0;
+}
+
+/// Death cleanup mirroring the reference core's Unit::setDeathState +
+/// Player::KillPlayer: zero health/power on the wire, stop the victim's
+/// own attacks and cast, stop everyone attacking the victim, drop auras.
+pub fn handleDeath(map_ecs: *MapEcs, frame: MapEcs.Frame, victim: Entity) !void {
+    const registry = &map_ecs.registry;
+
+    // Wire state: health 0 + power 0 (public fields; the client renders
+    // the death pose from health).
+    const victim_guid = registry.getConst(component.Guid, victim).value;
+    const power_type: u8 = if (registry.has(component.Appearance, victim))
+        @intFromEnum(registry.getConst(component.Appearance, victim).class_id.powerTypeId())
+    else
+        0;
+
+    var pkt = try protocol.object.UpdateObject.init(frame.arena_allocator);
+    defer pkt.deinit(frame.arena_allocator);
+    var fields = protocol.object.Fields{};
+    fields.set(protocol.object.UnitField.health, 0);
+    if (power_type < 7) fields.set(protocol.object.UnitField.power(power_type), 0);
+    try pkt.add(frame.arena_allocator, .{ .values = .{ .guid = victim_guid, .fields = fields } });
+    try map_ecs.broadcast(.{ victim, .{ .ignore_sender = false } }, pkt);
+
+    // The victim's own cast dies (retail: InterruptNonMeleeSpells).
+    try interruptCast(map_ecs, victim, null);
+
+    // The victim stops attacking.
+    if (registry.has(component.Attacking, victim)) {
+        registry.removeIfExists(component.Attacking, victim);
+        try map_ecs.broadcast(.{ victim, .{ .ignore_sender = false } }, protocol.spell.AttackStopServer{
+            .attacker_guid = victim_guid,
+            .victim_guid = null,
+        });
+    }
+
+    // Everyone attacking the victim stops.
+    var attackers = registry.view(.{component.Attacking}, .{});
+    var attacker_it = attackers.entityIterator();
+    while (attacker_it.next()) |attacker| {
+        if (registry.getConst(component.Attacking, attacker).target != victim) continue;
+        registry.removeIfExists(component.Attacking, attacker);
+        try map_ecs.broadcast(.{ attacker, .{ .ignore_sender = false } }, protocol.spell.AttackStopServer{
+            .attacker_guid = registry.getConst(component.Guid, attacker).value,
+            .victim_guid = victim_guid,
+        });
+    }
+
+    // Auras drop on death (retail: RemoveAllAurasOnDeath).
+    var auras = registry.view(.{component.Aura}, .{});
+    var aura_it = auras.entityIterator();
+    while (aura_it.next()) |aura_entity| {
+        const aura = registry.getConst(component.Aura, aura_entity);
+        if (aura.target != victim) continue;
+        registry.destroy(aura_entity);
+        try map_ecs.broadcast(.{ victim, .{ .ignore_sender = false } }, protocol.spell.AuraUpdateServer.remove(victim_guid, aura.slot));
+    }
 }
 
 pub fn rollDamage(io: std.Io, min: u32, max: u32) u32 {
