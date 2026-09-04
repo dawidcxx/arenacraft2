@@ -1,6 +1,7 @@
 pub const character_create = @import("CharacterCreate.zig");
 pub const ObjectGuid = @import("ObjectGuid.zig").ObjectGuid;
 pub const items = @import("Items.zig");
+pub const spells = @import("Spells.zig");
 pub const equipment = @import("Equipment.zig");
 pub const character_stats = @import("CharacterStats.zig");
 pub const races = @import("Races.zig");
@@ -18,6 +19,7 @@ test {
     _ = @import("CharacterCreate.zig");
     _ = @import("ObjectGuid.zig");
     _ = @import("Items.zig");
+    _ = @import("Spells.zig");
     _ = @import("Equipment.zig");
     _ = @import("CharacterStats.zig");
     _ = @import("Races.zig");

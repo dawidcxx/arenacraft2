@@ -12,6 +12,7 @@ const component = @import("EcsComponent.zig");
 const EcsInput = @import("EcsInput.zig");
 const MapEcs = @import("MapEcs.zig").MapEcs;
 const LocalChatSystem = @import("LocalChatSystem.zig");
+const SpellSystem = @import("SpellSystem.zig");
 
 const Arc = stdx.Arc;
 const ArcRuntime = stdx.ArcRuntime;
@@ -19,13 +20,17 @@ const ArcRuntime = stdx.ArcRuntime;
 const log = std.log.scoped(.input_system);
 
 pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
-    _ = frame;
     for (map_ecs.input_buffer.items) |input| {
         switch (input) {
             .player_join => |join| try handleJoin(map_ecs, join.player),
             .player_move => |move| try handleMove(map_ecs, move),
             .player_leave => |leave| try handleLeave(map_ecs, leave.account_id),
             .local_chat => |chat| try LocalChatSystem.run(map_ecs, chat),
+            .spell_cast => |cast| try SpellSystem.handleCast(map_ecs, frame, cast),
+            .attack_swing => |swing| try SpellSystem.handleSwing(map_ecs, frame, swing),
+            .attack_stop => |stop| try SpellSystem.handleStop(map_ecs, frame, stop),
+            .cancel_cast => |cancel| try SpellSystem.handleCancelCast(map_ecs, cancel),
+            .set_sheathed => |sheathed| try SpellSystem.handleSheath(map_ecs, frame, sheathed),
         }
     }
 }
@@ -80,6 +85,8 @@ fn createPlayerEntity(reg: *ecs.Registry, player: *domain.Player) ecs.Entity {
     reg.add(entity, component.VisibleItems{ .entries = character.visible_items, .guids = character.item_guids });
     reg.add(entity, component.Level{ .value = character.level });
     reg.add(entity, component.Stats{ .derived = character.derived });
+    reg.add(entity, component.Health{ .current = character.derived.max_health });
+    reg.add(entity, component.Sheath{ .state = 0 });
 
     return entity;
 }
@@ -103,6 +110,10 @@ fn handleMove(
         .z = info.z,
     };
     registry.get(component.Orientation, mover).*.value = info.orientation;
+
+    // Displacing movement interrupts a running cast; the client already
+    // dropped its cast bar when it started moving.
+    if (packet.interruptsCast()) try SpellSystem.interruptCast(map_ecs, mover, null);
 
     switch (packet) {
         inline else => |active| try map_ecs.broadcast(

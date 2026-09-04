@@ -100,6 +100,7 @@ fn playerEntityToPlayerCreate(reg: *ecs.Registry, player: ecs.Entity, time_ms: u
         .base_stats = stats.derived.base_stats,
         .item_stats = stats.derived.item_stats,
         .armor = stats.derived.armor,
+        .sheath_state = reg.getConst(component.Sheath, player).state,
         .faction_template = domain.races.factionTemplate(appearance.race_id),
         .display_id = domain.races.displayId(appearance.race_id, appearance.gender),
         .visible_items = reg.getConst(component.VisibleItems, player).entries,

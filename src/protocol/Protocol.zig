@@ -66,6 +66,8 @@ pub const chat = struct {
     pub const MessageChatServer = @import("./ChatProtocol.zig").MessageChatServer;
 };
 
+pub const spell = @import("./SpellProtocol.zig");
+
 pub const object = @import("./UpdateObject.zig");
 pub const movement = @import("./Movement.zig");
 
@@ -78,6 +80,7 @@ test {
     _ = @import("./AuthProtocol.zig");
     _ = @import("./WorldProtocol.zig");
     _ = @import("./ChatProtocol.zig");
+    _ = @import("./SpellProtocol.zig");
     _ = @import("./WorldAuthCrypt.zig");
     _ = @import("./Movement.zig");
     _ = @import("./UpdateObject.zig");

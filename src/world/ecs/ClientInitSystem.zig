@@ -31,8 +31,22 @@ fn sendClientInit(map_ecs: *MapEcs, frame: MapEcs.Frame, entity: ecs.Entity) !vo
     try map_ecs.sendTo(entity, protocol.world.TalentsInfoServer{});
 
     const language_spell_ids = domain.races.languageSpellIds(appearance.race_id);
-    try map_ecs.sendTo(entity, protocol.world.InitialSpellsServer{ .spells = language_spell_ids });
+    // language ids + auto-learned combat spells; languages cap at 3 today.
+    var spell_ids: [8]u32 = undefined;
+    var spell_count: usize = 0;
     for (language_spell_ids) |spell_id| {
+        spell_ids[spell_count] = spell_id;
+        spell_count += 1;
+    }
+    for (&domain.spells.auto_learned_spell_ids) |spell_id| {
+        spell_ids[spell_count] = spell_id;
+        spell_count += 1;
+    }
+
+    try map_ecs.sendTo(entity, protocol.world.InitialSpellsServer{
+        .spells = spell_ids[0..spell_count],
+    });
+    for (spell_ids[0..spell_count]) |spell_id| {
         try map_ecs.sendTo(entity, protocol.world.LearnedSpellServer{ .spell_id = spell_id });
     }
     try map_ecs.sendTo(entity, protocol.world.ActionButtonsServer{});
