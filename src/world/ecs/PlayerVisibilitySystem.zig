@@ -85,7 +85,7 @@ fn playerEntityToPlayerCreate(reg: *ecs.Registry, player: ecs.Entity, time_ms: u
         .y = position.y,
         .z = position.z,
         .orientation = orientation.value,
-        .race = appearance.race_id,
+        .race = @intFromEnum(appearance.race_id),
         .class = @intFromEnum(appearance.class_id),
         .gender = appearance.gender,
         .skin = appearance.skin,

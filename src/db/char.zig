@@ -378,7 +378,7 @@ pub fn fetchCharacter(pool: *pg.Pool, guid: ObjectGuid, account_id: u64, realm_i
             },
             .orientation = row.get(f32, 6) catch unreachable,
         },
-        .race_id = util.readU8(row.row, 7),
+        .race_id = @enumFromInt(util.readU8(row.row, 7)),
         .gender = util.readU8(row.row, 8),
         .skin = util.readU8(row.row, 9),
         .face = util.readU8(row.row, 10),

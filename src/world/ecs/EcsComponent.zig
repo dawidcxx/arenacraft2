@@ -15,8 +15,8 @@ pub const Position = struct { x: f32, y: f32, z: f32 };
 pub const Orientation = struct { value: f32 };
 
 pub const Appearance = struct {
-    race_id: u8,
-    class_id: domain.ClassId,
+    race_id: domain.Race,
+    class_id: domain.Class,
     gender: u8,
     skin: u8,
     face: u8,

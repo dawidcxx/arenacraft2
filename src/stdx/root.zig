@@ -7,6 +7,7 @@ pub const ArcRuntime = @import("Arc.zig").ArcRuntime;
 pub const CoWList = @import("CoWList.zig").CoWList;
 pub const Clock = @import("Clock.zig").Clock;
 pub const ShutdownSignal = @import("ShutdownSignal.zig").ShutdownSignal;
+pub const Mask = @import("Mask.zig").Mask;
 
 pub const name = "stdx";
 
@@ -128,4 +129,5 @@ test {
     _ = @import("./Arc.zig");
     _ = @import("./CoWList.zig");
     _ = @import("./StringList.zig");
+    _ = @import("./Mask.zig");
 }

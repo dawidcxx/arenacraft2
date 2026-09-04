@@ -222,7 +222,7 @@ fn dispatchPacket(
                 return try conn.sendMessage(alloc, protocol.world.NameQueryResponseServer{
                     .guid = query.guid,
                     .name = player.character.nameSlice(),
-                    .race = player.character.race_id,
+                    .race = @intFromEnum(player.character.race_id),
                     .gender = player.character.gender,
                     .class_id = @intFromEnum(player.character.class_id),
                 });

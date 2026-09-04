@@ -1,7 +1,8 @@
 const std = @import("std");
 const ObjectGuid = @import("./ObjectGuid.zig").ObjectGuid;
 const Session = @import("./Session.zig").Session;
-const ClassId = @import("./ClassId.zig").ClassId;
+const Class = @import("./Class.zig").Class;
+const Race = @import("./Race.zig").Race;
 const MapId = @import("./MapId.zig").MapId;
 const Movement = @import("./Movement.zig").Movement;
 const DerivedStats = @import("./CharacterStats.zig").DerivedStats;
@@ -14,8 +15,8 @@ pub const Character = struct {
 
     map_id: MapId,
 
-    class_id: ClassId,
-    race_id: u8,
+    class_id: Class,
+    race_id: Race,
     gender: u8,
     skin: u8,
     face: u8,
