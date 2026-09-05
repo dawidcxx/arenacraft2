@@ -56,6 +56,14 @@ pub const HexFmt = struct {
     }
 };
 
+// ─── ENUM RE-MAPPING ─────────────────────────────────────────────────────────
+
+/// Converts an enum value to another enum type by matching tag names.
+/// A tag missing on `To` is a compile error.
+pub fn mapEnum(comptime To: type, value: anytype) To {
+    return @field(To, @tagName(value));
+}
+
 // ─── IMMUTABLE FIELD UPDATE ──────────────────────────────────────────────────
 
 /// The struct type behind a `with` receiver: method calls on a mutable

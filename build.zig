@@ -98,6 +98,7 @@ fn addGameData(
 ) !void {
     const game_data_db_mod = try generateGameDataDbModule(b);
     const domain_mod = DOMAIN_MOD orelse return error.MissingModule;
+    const stdx_mod = STDX_MOD orelse return error.MissingModule;
 
     const mod = b.createModule(.{
         .root_source_file = b.path("src/game_data/root.zig"),
@@ -106,6 +107,7 @@ fn addGameData(
         .imports = &.{
             .{ .name = "game_data_db", .module = game_data_db_mod },
             .{ .name = "domain", .module = domain_mod },
+            .{ .name = "stdx", .module = stdx_mod },
         },
     });
     GAME_DATA_MOD = mod;

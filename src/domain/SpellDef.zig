@@ -1,15 +1,19 @@
-//! Plain spell definition type. The entry lookup over the JSON rows lives
-//! in the game_data module.
-
 pub const SpellDef = struct {
-    /// 3.3.5a spell school masks (SPELL_SCHOOL_MASK_*).
-    pub const school_physical: u8 = 0x01;
-    pub const school_frost: u8 = 0x10;
+    pub const School = enum(u8) {
+        normal = 0,
+        holy = 1,
+        fire = 2,
+        nature = 3,
+        frost = 4,
+        shadow = 5,
+        arcane = 6,
+    };
 
     entry: u32,
     name: []const u8,
-    /// SpellSchoolMask bitmask (see school_* constants).
-    school: u8,
+
+    school: School,
+
     /// 0 = instant. The client renders the cast bar from its own Spell.dbc;
     /// this drives the server-side cast delay.
     cast_time_ms: u32,
