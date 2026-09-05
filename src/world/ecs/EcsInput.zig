@@ -13,6 +13,9 @@ pub const PlayerMove = struct {
 
 pub const LocalChat = struct { account_id: u64, packet: protocol.chat.MessageChatClient };
 
+pub const CastSpell = struct { account_id: u64, packet: protocol.spell.CastSpellClient };
+pub const CancelCast = struct { account_id: u64, packet: protocol.spell.CancelCastClient };
+
 pub const Input = union(enum) {
     player_join: struct {
         player: *domain.Player,
@@ -22,16 +25,31 @@ pub const Input = union(enum) {
     },
     player_move: PlayerMove,
     local_chat: LocalChat,
+    cast_spell: CastSpell,
+    cancel_cast: CancelCast,
 };
 
 pub const EcsEventType = enum {
     player_joined,
     player_left,
+    cast_started,
+    cast_failed,
+    cast_interrupted,
+    spell_healed,
 };
 
 pub const EcsEvent = union(EcsEventType) {
     player_joined: struct { player: ecs.Entity },
     player_left: struct { player: ecs.Entity, guid: domain.ObjectGuid },
+    /// A cast request passed validation and became a Cast.
+    cast_started: struct { caster: ecs.Entity, target: ecs.Entity, spell_id: u32, cast_count: u8, delay_ms: i32 },
+    /// A cast request was rejected before it became a Cast.
+    cast_failed: struct { caster: ecs.Entity, spell_id: u32, cast_count: u8, reason: protocol.spell.CastFailedCode },
+    /// A running cast was torn down before finishing; `by_client` marks a
+    /// CMSG_CANCEL_CAST, which additionally gets SMSG_CAST_FAILED.
+    cast_interrupted: struct { caster: ecs.Entity, spell_id: u32, cast_count: u8, by_client: bool },
+    /// A heal effect landed on a target.
+    spell_healed: struct { caster: ecs.Entity, target: ecs.Entity, spell_id: u32, cast_count: u8, amount: u32 },
 };
 
 pub const Output = union(enum) {

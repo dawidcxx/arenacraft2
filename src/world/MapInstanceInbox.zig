@@ -13,6 +13,16 @@ pub const Chat = struct {
     packet: protocol.chat.MessageChatClient,
 };
 
+pub const CastSpell = struct {
+    account_id: u64,
+    packet: protocol.spell.CastSpellClient,
+};
+
+pub const CancelCast = struct {
+    account_id: u64,
+    packet: protocol.spell.CancelCastClient,
+};
+
 pub const InboxMsg = union(enum) {
     player_join: struct {
         signal: *std.Io.Semaphore,
@@ -24,4 +34,6 @@ pub const InboxMsg = union(enum) {
     },
     player_move: PlayerMove,
     chat: Chat,
+    cast_spell: CastSpell,
+    cancel_cast: CancelCast,
 };

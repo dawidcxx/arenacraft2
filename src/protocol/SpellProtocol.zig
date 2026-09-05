@@ -41,6 +41,7 @@ pub const CastFailedCode = enum(u8) {
     bad_implicit_targets = 11,
     interrupted = 40,
     not_known = 63,
+    no_power = 85,
     out_of_range = 97,
     spell_in_progress = 105,
     targets_dead = 109,
@@ -274,6 +275,31 @@ pub const SpellFailedOtherServer = struct {
         var out: std.ArrayList(u8) = .empty;
         errdefer out.deinit(gpa);
         try appendInterruptedBody(&out, gpa, self.caster_guid, self.cast_count, self.spell_id, self.result);
+        return out.toOwnedSlice(gpa);
+    }
+};
+
+/// SMSG_SPELLHEALLOG (0x151): a heal landed on a unit. Layout transcribed
+/// from the reference core (SpellCaster::SendHealSpellLog →
+/// WorldPackets::Spell::SpellHealLog::AppendBodyTo).
+pub const SpellHealLogServer = struct {
+    pub const opcode: world_protocol.Opcode = .smsg_spellheallog;
+
+    target_guid: ObjectGuid,
+    healer_guid: ObjectGuid,
+    spell_id: u32,
+    heal_amount: u32,
+    is_critical: bool = false,
+
+    pub fn marshal(self: SpellHealLogServer, gpa: std.mem.Allocator) ![]u8 {
+        var out: std.ArrayList(u8) = .empty;
+        errdefer out.deinit(gpa);
+
+        try appendPackedGuid(&out, gpa, self.target_guid);
+        try appendPackedGuid(&out, gpa, self.healer_guid);
+        try appendU32(&out, gpa, self.spell_id);
+        try appendU32(&out, gpa, self.heal_amount);
+        try out.append(gpa, if (self.is_critical) 1 else 0);
         return out.toOwnedSlice(gpa);
     }
 };

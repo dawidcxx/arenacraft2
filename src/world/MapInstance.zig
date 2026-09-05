@@ -50,6 +50,18 @@ pub const MapInstance = struct {
         };
     }
 
+    pub fn pushCastSpellAsync(self: *Self, io: std.Io, request: MapInstanceInbox.CastSpell) void {
+        self.inbox.putOne(io, .{ .cast_spell = request }) catch |e| {
+            log.info("Dropping .pushCastSpellAsync, reason='{}'", .{e});
+        };
+    }
+
+    pub fn pushCancelCastAsync(self: *Self, io: std.Io, request: MapInstanceInbox.CancelCast) void {
+        self.inbox.putOne(io, .{ .cancel_cast = request }) catch |e| {
+            log.info("Dropping .pushCancelCastAsync, reason='{}'", .{e});
+        };
+    }
+
     pub fn joinPlayer(
         self: *Self,
         io: std.Io,
@@ -117,6 +129,14 @@ pub const MapInstance = struct {
                         .chat => |chat| {
                             self.map_ecs.addInput(.{ .local_chat = .{ .account_id = chat.account_id, .packet = chat.packet } });
                             // chat is async only, no ack
+                        },
+                        .cast_spell => |c| {
+                            self.map_ecs.addInput(.{ .cast_spell = .{ .account_id = c.account_id, .packet = c.packet } });
+                            // cast is async only, no ack
+                        },
+                        .cancel_cast => |c| {
+                            self.map_ecs.addInput(.{ .cancel_cast = .{ .account_id = c.account_id, .packet = c.packet } });
+                            // cancel is async only, no ack
                         },
                     }
 

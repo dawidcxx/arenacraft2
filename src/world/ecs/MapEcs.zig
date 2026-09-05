@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const domain = @import("domain");
 const ecs = @import("ecs");
 const stdx = @import("stdx");
 const Arc = stdx.Arc;
@@ -42,6 +43,10 @@ pub const MapEcs = struct {
         const events = std.EnumArray(EcsEventType, std.ArrayList(EcsEvent)).init(.{
             .player_joined = .empty,
             .player_left = .empty,
+            .cast_started = .empty,
+            .cast_failed = .empty,
+            .cast_interrupted = .empty,
+            .spell_healed = .empty,
         });
 
         return .{
@@ -63,6 +68,8 @@ pub const MapEcs = struct {
 
     pub fn run(self: *MapEcs, frame: Frame) !void {
         try @import("./InputSystem.zig").run(self, frame);
+        try @import("./CastSystem.zig").run(self, frame);
+        try @import("./SpellPacketsSystem.zig").run(self, frame);
         try @import("./PlayerVisibilitySystem.zig").run(self, frame);
         try @import("./ClientInitSystem.zig").run(self, frame);
         @import("./OutboundPacketSystem.zig").run(self, frame);
@@ -88,6 +95,16 @@ pub const MapEcs = struct {
         var iter = view.entityIterator();
         while (iter.next()) |entity| {
             if (self.registry.getConst(component.AccountId, entity).id == account_id) return entity;
+        }
+        return null;
+    }
+
+    /// Linear scan for the entity carrying a wire guid (players today).
+    pub fn findByGuid(self: *MapEcs, guid: domain.ObjectGuid) ?ecs.Entity {
+        var view = self.registry.view(.{component.Guid}, .{});
+        var iter = view.entityIterator();
+        while (iter.next()) |entity| {
+            if (self.registry.getConst(component.Guid, entity).value.valueOf() == guid.valueOf()) return entity;
         }
         return null;
     }

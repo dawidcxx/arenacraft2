@@ -62,6 +62,7 @@ pub const Opcode = enum(u32) {
     smsg_spell_go = 0x132,
     smsg_spell_failure = 0x133,
     smsg_spell_failed_other = 0x2A6,
+    smsg_spellheallog = 0x151,
     smsg_spellnonmeleedamagelog = 0x250,
     smsg_aura_update = 0x496,
     cmsg_attackswing = 0x141,

@@ -1,15 +1,25 @@
 [
   {
+    "entry": 2061,
+    "name": "Flash Heal",
+    "school": 2,
+    "cast_time_ms": 1500,
+    "range_yards": 40,
+    "effect": 2,
+    "min_effect": 193,
+    "max_effect": 237,
+    "mana_cost_pct_base": 18
+  },
+  {
     "entry": 116,
     "name": "Frostbolt",
     "school": 16,
     "cast_time_ms": 1500,
     "range_yards": 30,
-    "min_damage": 18,
-    "max_damage": 20,
-    "movement_slow_pct": 40,
-    "aura_duration_ms": 5000,
-    "is_melee": false
+    "effect": 1,
+    "min_effect": 18,
+    "max_effect": 20,
+    "mana_cost_pct_base": 0
   },
   {
     "entry": 6603,
@@ -17,11 +27,10 @@
     "school": 1,
     "cast_time_ms": 0,
     "range_yards": 5,
-    "min_damage": 1,
-    "max_damage": 2,
-    "movement_slow_pct": 0,
-    "aura_duration_ms": 0,
-    "is_melee": true
+    "effect": 1,
+    "min_effect": 1,
+    "max_effect": 2,
+    "mana_cost_pct_base": 0
   },
   {
     "entry": 668,
@@ -29,10 +38,9 @@
     "school": 0,
     "cast_time_ms": 0,
     "range_yards": 0,
-    "min_damage": 0,
-    "max_damage": 0,
-    "movement_slow_pct": 0,
-    "aura_duration_ms": 0,
-    "is_melee": false
+    "effect": 0,
+    "min_effect": 0,
+    "max_effect": 0,
+    "mana_cost_pct_base": 0
   }
 ]

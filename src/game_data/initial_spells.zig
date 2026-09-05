@@ -11,7 +11,6 @@ const Race = domain.Race;
 /// Rows say which spell a character of a given class/race receives at
 /// login; spell definitions themselves live in the spells lookup.
 /// Restriction masks follow Class.Mask/Race.Mask (0 = wildcard).
-
 const GrantRow = struct {
     spell_id: u32,
     class_mask: Class.Mask,
@@ -25,7 +24,6 @@ fn matches(row: GrantRow, class_id: Class, race_id: Race) bool {
 /// Worst-case grant list length over every class/race pair; sizes GrantList.
 pub const max_granted: usize = blk: {
     @setEvalBranchQuota(100_000);
-
     var worst: usize = 0;
     for (@typeInfo(Class).@"enum".fields) |class_field| {
         for (@typeInfo(Race).@"enum".fields) |race_field| {
@@ -43,7 +41,6 @@ pub const max_granted: usize = blk: {
 pub const GrantList = struct {
     ids: [max_granted]u32 = undefined,
     len: usize = 0,
-
     pub fn slice(self: *const GrantList) []const u32 {
         return self.ids[0..self.len];
     }
@@ -54,8 +51,8 @@ pub fn grantsFor(class_id: Class, race_id: Race) GrantList {
     var list = GrantList{};
     for (grant_rows) |row| {
         if (!matches(row, class_id, race_id)) continue;
-        const spell_id = row.spell_id;
 
+        const spell_id = row.spell_id;
         // Overlapping rows can grant the same spell twice; the client
         // would render duplicate spellbook entries.
         var already = false;
@@ -63,7 +60,6 @@ pub fn grantsFor(class_id: Class, race_id: Race) GrantList {
             if (id == spell_id) already = true;
         }
         if (already) continue;
-
         list.ids[list.len] = spell_id;
         list.len += 1;
     }
@@ -125,8 +121,14 @@ test "wildcard rows grant to every class and race" {
 
     inline for (@typeInfo(Class).@"enum".fields) |class_field| {
         inline for (@typeInfo(Race).@"enum".fields) |race_field| {
-            const grants = grantsFor(@enumFromInt(class_field.value), @enumFromInt(race_field.value));
-            try t.expectEqualSlices(u32, &.{ 116, 6603 }, grants.slice());
+            const class: Class = @enumFromInt(class_field.value);
+            const grants = grantsFor(class, @enumFromInt(race_field.value));
+            // Wildcard rows grant everyone; Flash Heal is priest-only.
+            if (class == .priest) {
+                try t.expectEqualSlices(u32, &.{ 116, 2061, 6603 }, grants.slice());
+            } else {
+                try t.expectEqualSlices(u32, &.{ 116, 6603 }, grants.slice());
+            }
         }
     }
 }

@@ -38,6 +38,24 @@ pub const AllMovementPackets = union(MovementOpCode) {
         };
     }
 
+    /// Whether this movement displaces the unit enough to break a running
+    /// cast: the walk starts, jump, fall landing, swim start and the
+    /// periodic heartbeat. Turns, pitches, stops and mode toggles do not.
+    pub fn interruptsCast(self: AllMovementPackets) bool {
+        return switch (self) {
+            .msg_move_start_forward,
+            .msg_move_start_backward,
+            .msg_move_start_strafe_left,
+            .msg_move_start_strafe_right,
+            .msg_move_jump,
+            .msg_move_fall_land,
+            .msg_move_start_swim,
+            .msg_move_heartbeat,
+            => true,
+            else => false,
+        };
+    }
+
     pub fn fromOpcodeAndBody(
         opcode: MovementOpCode,
         body: []const u8,
