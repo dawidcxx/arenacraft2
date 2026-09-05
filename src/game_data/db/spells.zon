@@ -1,6 +1,6 @@
 .{
     .{
-        .entry = 116,
+        .spell_id = 116,
         .name = "Frostbolt",
         .school = .frost,
         .cast_time_ms = 1500,
@@ -12,7 +12,7 @@
         .is_melee = false,
     },
     .{
-        .entry = 6603,
+        .spell_id = 6603,
         .name = "Auto Attack",
         .school = .normal,
         .cast_time_ms = 0,
@@ -24,7 +24,7 @@
         .is_melee = true,
     },
     .{
-        .entry = 668,
+        .spell_id = 668,
         .name = "Language Common",
         .school = .normal,
         .cast_time_ms = 0,

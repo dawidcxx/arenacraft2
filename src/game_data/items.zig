@@ -2,62 +2,37 @@
 //! domain.ItemDef. Duplicate entries fail the build.
 
 const std = @import("std");
+const stdx = @import("stdx");
 const db = @import("game_data_db");
 const domain = @import("domain");
 
 const ItemDef = domain.ItemDef;
 
+fn mapItemRow(comptime row: db.items.Row) ItemDef {
+    return .{
+        .entry = @intCast(row.entry),
+        .display_id = @intCast(row.display_id),
+        .inventory_type = @intCast(row.inventory_type),
+        .name = row.name,
+        .item_class = @intCast(row.item_class),
+        .item_subclass = @intCast(row.item_subclass),
+        .quality = @intCast(row.quality),
+        .stamina = @intCast(row.stamina),
+        .intellect = @intCast(row.intellect),
+        .armor = @intCast(row.armor),
+    };
+}
+
+const table = stdx.SortedTable(
+    "game_data/db/items.zon",
+    db.items.rows,
+    mapItemRow,
+    .entry,
+);
+
 pub fn findItem(entry: u32) ?ItemDef {
-    const idx = std.sort.binarySearch(
-        ItemDef,
-        &sorted_items,
-        LookupCtx{ .key = entry },
-        compareEntry,
-    ) orelse return null;
-
-    return sorted_items[idx];
+    return table.find(entry);
 }
-
-fn compareEntry(ctx: LookupCtx, item: ItemDef) std.math.Order {
-    return std.math.order(ctx.key, item.entry);
-}
-
-const sorted_items: [db.items.rows.len]ItemDef = blk: {
-    @setEvalBranchQuota(20_000);
-
-    var arr: [db.items.rows.len]ItemDef = undefined;
-    for (db.items.rows, 0..) |row, i| {
-        arr[i] = .{
-            .entry = @intCast(row.entry),
-            .display_id = @intCast(row.display_id),
-            .inventory_type = @intCast(row.inventory_type),
-            .name = row.name,
-            .item_class = @intCast(row.item_class),
-            .item_subclass = @intCast(row.item_subclass),
-            .quality = @intCast(row.quality),
-            .stamina = @intCast(row.stamina),
-            .intellect = @intCast(row.intellect),
-            .armor = @intCast(row.armor),
-        };
-    }
-
-    std.mem.sort(ItemDef, &arr, {}, struct {
-        fn lessThan(_: void, a: ItemDef, b: ItemDef) bool {
-            return a.entry < b.entry;
-        }
-    }.lessThan);
-
-    // The binary search only yields unambiguous results on strictly
-    // increasing entries; duplicates would be a game-data authoring bug.
-    for (1..arr.len) |i| {
-        if (arr[i].entry == arr[i - 1].entry)
-            @compileError(std.fmt.comptimePrint("duplicate item entry in game_data/db/items.zon: {d}", .{arr[i].entry}));
-    }
-
-    break :blk arr;
-};
-
-const LookupCtx = struct { key: u32 };
 
 test "generated item defs resolve known entries" {
     const t = std.testing;

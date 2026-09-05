@@ -1,6 +1,6 @@
 const std = @import("std");
 const db = @import("game_data_db");
-const spells = @import("spells.zig");
+const spells_db = @import("spells.zig").spells_db;
 
 const domain = @import("domain");
 
@@ -11,7 +11,6 @@ const Race = domain.Race;
 /// Rows say which spell a character of a given class/race receives at
 /// login; spell definitions themselves live in the spells lookup.
 /// Restriction masks follow Class.Mask/Race.Mask (0 = wildcard).
-
 const GrantRow = struct {
     spell_id: u32,
     class_mask: Class.Mask,
@@ -98,7 +97,7 @@ const grant_rows: [db.initial_spells.rows.len]GrantRow = blk: {
 
     var converted: [sorted.len]GrantRow = undefined;
     for (sorted, 0..) |row, i| {
-        if (spells.findSpell(@intCast(row.spell_id)) == null) {
+        if (spells_db.findSpellById(@intCast(row.spell_id)) == null) {
             @compileError(std.fmt.comptimePrint("initial_spells.zon references unknown spell entry: {d}", .{row.spell_id}));
         }
 

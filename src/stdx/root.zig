@@ -8,6 +8,7 @@ pub const CoWList = @import("CoWList.zig").CoWList;
 pub const Clock = @import("Clock.zig").Clock;
 pub const ShutdownSignal = @import("ShutdownSignal.zig").ShutdownSignal;
 pub const Mask = @import("Mask.zig").Mask;
+pub const SortedTable = @import("SortedTable.zig").SortedTable;
 
 pub const name = "stdx";
 
@@ -59,8 +60,8 @@ pub const HexFmt = struct {
 // ─── ENUM RE-MAPPING ─────────────────────────────────────────────────────────
 
 /// Converts an enum value to another enum type by matching tag names.
-/// A tag missing on `To` is a compile error.
-pub fn mapEnum(comptime To: type, value: anytype) To {
+/// A tag missing on `To` is a compile error. `value` must be comptime.
+pub fn mapEnum(comptime To: type, comptime value: anytype) To {
     return @field(To, @tagName(value));
 }
 
@@ -138,4 +139,5 @@ test {
     _ = @import("./CoWList.zig");
     _ = @import("./StringList.zig");
     _ = @import("./Mask.zig");
+    _ = @import("./SortedTable.zig");
 }

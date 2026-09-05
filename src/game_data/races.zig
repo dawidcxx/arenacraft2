@@ -1,4 +1,5 @@
 const std = @import("std");
+const stdx = @import("stdx");
 const db = @import("game_data_db");
 const domain = @import("domain");
 
@@ -15,14 +16,8 @@ pub const RaceInfo = struct {
 
 /// Keyed by ChrRaces id (1..8, 10, 11).
 pub fn raceInfo(race_id: Race) ?RaceInfo {
-    const idx = std.sort.binarySearch(
-        RaceEntry,
-        &sorted_races,
-        LookupCtx{ .key = @intFromEnum(race_id) },
-        compareRaceId,
-    ) orelse return null;
-
-    return sorted_races[idx].info;
+    const entry = table.find(@intFromEnum(race_id)) orelse return null;
+    return entry.info;
 }
 
 pub fn displayId(race_id: Race, gender: u8) u32 {
@@ -39,8 +34,15 @@ pub fn factionTemplate(race_id: Race) u32 {
     return info.faction_template;
 }
 
-pub fn compareRaceId(ctx: LookupCtx, entry: RaceEntry) std.math.Order {
-    return std.math.order(ctx.key, entry.race_id);
+fn mapRaceRow(comptime row: db.races.Row) RaceEntry {
+    return .{
+        .race_id = @intCast(row.race_id),
+        .info = .{
+            .faction_template = @intCast(row.faction_template),
+            .male_display_id = @intCast(row.male_display_id),
+            .female_display_id = @intCast(row.female_display_id),
+        },
+    };
 }
 
 const RaceEntry = struct {
@@ -48,29 +50,12 @@ const RaceEntry = struct {
     info: RaceInfo,
 };
 
-const sorted_races: [db.races.rows.len]RaceEntry = blk: {
-    var arr: [db.races.rows.len]RaceEntry = undefined;
-    for (db.races.rows, 0..) |row, i| {
-        arr[i] = .{
-            .race_id = @intCast(row.race_id),
-            .info = .{
-                .faction_template = @intCast(row.faction_template),
-                .male_display_id = @intCast(row.male_display_id),
-                .female_display_id = @intCast(row.female_display_id),
-            },
-        };
-    }
-
-    std.mem.sort(RaceEntry, &arr, {}, struct {
-        fn lessThan(_: void, a: RaceEntry, b: RaceEntry) bool {
-            return a.race_id < b.race_id;
-        }
-    }.lessThan);
-
-    break :blk arr;
-};
-
-const LookupCtx = struct { key: u8 };
+const table = stdx.SortedTable(
+    "game_data/db/races.zon",
+    db.races.rows,
+    mapRaceRow,
+    .race_id,
+);
 
 test "race data covers playable race ids" {
     inline for (@typeInfo(Race).@"enum".fields) |field| {

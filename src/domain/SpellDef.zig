@@ -9,7 +9,7 @@ pub const SpellDef = struct {
         arcane = 6,
     };
 
-    entry: u32,
+    spell_id: u32,
     name: []const u8,
 
     school: School,
