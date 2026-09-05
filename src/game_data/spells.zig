@@ -33,11 +33,10 @@ const sorted_spells: [db.spells.rows.len]SpellDef = blk: {
             .school = @intCast(row.school),
             .cast_time_ms = @intCast(row.cast_time_ms),
             .range_yards = @intCast(row.range_yards),
-            .min_damage = @intCast(row.min_damage),
-            .max_damage = @intCast(row.max_damage),
-            .movement_slow_pct = @intCast(row.movement_slow_pct),
-            .aura_duration_ms = @intCast(row.aura_duration_ms),
-            .is_melee = row.is_melee,
+            .effect = @enumFromInt(row.effect),
+            .min_effect = @intCast(row.min_effect),
+            .max_effect = @intCast(row.max_effect),
+            .mana_cost_pct_base = @intCast(row.mana_cost_pct_base),
         };
     }
 
@@ -60,22 +59,25 @@ const LookupCtx = struct { key: u32 };
 test "generated spell defs resolve known entries" {
     const t = std.testing;
 
+    const flash_heal = findSpell(2061) orelse return error.MissingSpell;
+    try t.expectEqualStrings("Flash Heal", flash_heal.name);
+    try t.expectEqual(domain.SpellDef.school_holy, flash_heal.school);
+    try t.expectEqual(domain.SpellDef.Effect.heal, flash_heal.effect);
+    try t.expectEqual(@as(u32, 1500), flash_heal.cast_time_ms);
+    try t.expectEqual(@as(u32, 40), flash_heal.range_yards);
+    try t.expectEqual(@as(u32, 193), flash_heal.min_effect);
+    try t.expectEqual(@as(u32, 237), flash_heal.max_effect);
+    try t.expectEqual(@as(u32, 18), flash_heal.mana_cost_pct_base);
+
     const frostbolt = findSpell(116) orelse return error.MissingSpell;
     try t.expectEqualStrings("Frostbolt", frostbolt.name);
     try t.expectEqual(domain.SpellDef.school_frost, frostbolt.school);
+    try t.expectEqual(domain.SpellDef.Effect.damage, frostbolt.effect);
     try t.expectEqual(@as(u32, 1500), frostbolt.cast_time_ms);
     try t.expectEqual(@as(u32, 30), frostbolt.range_yards);
-    try t.expectEqual(@as(u32, 18), frostbolt.min_damage);
-    try t.expectEqual(@as(u32, 20), frostbolt.max_damage);
-    try t.expectEqual(@as(u32, 40), frostbolt.movement_slow_pct);
-    try t.expectEqual(@as(u32, 5000), frostbolt.aura_duration_ms);
-    try t.expect(!frostbolt.is_melee);
-
-    const auto_attack = findSpell(6603) orelse return error.MissingSpell;
-    try t.expectEqual(domain.SpellDef.school_physical, auto_attack.school);
-    try t.expectEqual(@as(u32, 0), auto_attack.cast_time_ms);
-    try t.expectEqual(@as(u32, 5), auto_attack.range_yards);
-    try t.expect(auto_attack.is_melee);
+    try t.expectEqual(@as(u32, 18), frostbolt.min_effect);
+    try t.expectEqual(@as(u32, 20), frostbolt.max_effect);
+    try t.expectEqual(@as(u32, 0), frostbolt.mana_cost_pct_base);
 
     try t.expect(findSpell(0) == null);
 }

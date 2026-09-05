@@ -31,6 +31,34 @@ pub const Level = struct { value: u8 };
 /// Mirrors domain.Character.derived: stats computed from equipped items.
 pub const Stats = struct { derived: domain.character_stats.DerivedStats };
 
+/// Current hit points; the ceiling lives in Stats.derived.max_health.
+pub const Health = struct { current: u32 };
+/// Current power (mana for mana classes); the ceiling lives in
+/// Stats.derived.max_power, the type in Appearance.class_id.
+pub const Power = struct { current: u32 };
+
+/// Unvalidated cast request transliterated from CMSG_CAST_SPELL. Spawned
+/// by InputSystem without judgment; CastSystem upgrades it into a Cast or
+/// destroys it with a cast_failed event. Carries the raw wire target
+/// guid; entity resolution happens during validation.
+pub const CastRequest = struct {
+    caster: Entity,
+    spell_id: u32,
+    target_guid: ?domain.ObjectGuid,
+    cast_count: u8,
+};
+
+/// A running cast: the upgraded form of a CastRequest. Spawned after
+/// validation passes, ticked by CastSystem until finish_ms, then
+/// destroyed once the effect applies. At most one per caster.
+pub const Cast = struct {
+    caster: Entity,
+    target: Entity,
+    spell_id: u32,
+    cast_count: u8,
+    finish_ms: u64,
+};
+
 /// Transient outbound packet awaiting delivery. The entity is destroyed by
 /// OutboundPacketSystem once every recipient got the body.
 pub const Packet = struct { data: Arc([]const u8), opcode: u32 };

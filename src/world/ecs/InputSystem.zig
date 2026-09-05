@@ -12,6 +12,7 @@ const component = @import("EcsComponent.zig");
 const EcsInput = @import("EcsInput.zig");
 const MapEcs = @import("MapEcs.zig").MapEcs;
 const LocalChatSystem = @import("LocalChatSystem.zig");
+const CastSystem = @import("CastSystem.zig");
 
 const Arc = stdx.Arc;
 const ArcRuntime = stdx.ArcRuntime;
@@ -26,6 +27,8 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
             .player_move => |move| try handleMove(map_ecs, move),
             .player_leave => |leave| try handleLeave(map_ecs, leave.account_id),
             .local_chat => |chat| try LocalChatSystem.run(map_ecs, chat),
+            .cast_spell => |cast| try handleCastSpell(map_ecs, cast),
+            .cancel_cast => |cancel| try handleCancelCast(map_ecs, cancel),
         }
     }
 }
@@ -80,6 +83,8 @@ fn createPlayerEntity(reg: *ecs.Registry, player: *domain.Player) ecs.Entity {
     reg.add(entity, component.VisibleItems{ .entries = character.visible_items, .guids = character.item_guids });
     reg.add(entity, component.Level{ .value = character.level });
     reg.add(entity, component.Stats{ .derived = character.derived });
+    reg.add(entity, component.Health{ .current = character.derived.max_health });
+    reg.add(entity, component.Power{ .current = character.derived.max_power });
 
     return entity;
 }
@@ -110,4 +115,36 @@ fn handleMove(
             active,
         ),
     }
+
+    // Displacing movement breaks a running cast; CastSystem owns the
+    // teardown and the animation-clearing packets.
+    if (packet.interruptsCast()) {
+        try CastSystem.interruptCast(map_ecs, mover, null, .{ .by_client = false });
+    }
+}
+
+/// Transliterates the parsed CMSG_CAST_SPELL into a CastRequest entity.
+/// No validation happens here; CastSystem decides everything.
+fn handleCastSpell(map_ecs: *MapEcs, cast: EcsInput.CastSpell) !void {
+    const caster = map_ecs.findPlayer(cast.account_id) orelse {
+        log.warn("cast spell from account not on this map (account_id={})", .{cast.account_id});
+        return;
+    };
+
+    const registry = &map_ecs.registry;
+    const request_entity = registry.create();
+    registry.add(request_entity, component.CastRequest{
+        .caster = caster,
+        .spell_id = cast.packet.spell_id,
+        .target_guid = cast.packet.target_guid,
+        .cast_count = cast.packet.cast_count,
+    });
+}
+
+fn handleCancelCast(
+    map_ecs: *MapEcs,
+    cancel: EcsInput.CancelCast,
+) !void {
+    const caster = map_ecs.findPlayer(cancel.account_id) orelse return;
+    try CastSystem.interruptCast(map_ecs, caster, cancel.packet.spell_id, .{ .by_client = true });
 }
