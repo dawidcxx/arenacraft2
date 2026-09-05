@@ -1,4 +1,4 @@
-//! Skill catalog over the game_data_db/skills.json rows, conforming to
+//! Skill catalog over the game_data_db/skills.zon rows, conforming to
 //! domain.SkillDef. Every skill pairs with the spell that represents it on
 //! the wire; a skill whose spell is unknown is a data bug and fails the
 //! build. Duplicate entries fail the build.
@@ -31,7 +31,7 @@ const sorted_skills: [db.skills.rows.len]SkillDef = blk: {
     var arr: [db.skills.rows.len]SkillDef = undefined;
     for (db.skills.rows, 0..) |row, i| {
         if (spells.findSpell(@intCast(row.spell_id)) == null) {
-            @compileError(std.fmt.comptimePrint("skills.json references unknown spell entry: {d}", .{row.spell_id}));
+            @compileError(std.fmt.comptimePrint("skills.zon references unknown spell entry: {d}", .{row.spell_id}));
         }
 
         arr[i] = .{
@@ -48,7 +48,7 @@ const sorted_skills: [db.skills.rows.len]SkillDef = blk: {
 
     for (1..arr.len) |i| {
         if (arr[i].skill_id == arr[i - 1].skill_id)
-            @compileError(std.fmt.comptimePrint("duplicate skill id in game_data/db/skills.json: {d}", .{arr[i].skill_id}));
+            @compileError(std.fmt.comptimePrint("duplicate skill id in game_data/db/skills.zon: {d}", .{arr[i].skill_id}));
     }
 
     break :blk arr;

@@ -7,7 +7,7 @@ const initial_spells = @import("initial_spells.zig");
 const Class = domain.Class;
 const Race = domain.Race;
 
-/// Login skill grants, from the game_data_db/initial_skills.json rows.
+/// Login skill grants, from the game_data_db/initial_skills.zon rows.
 /// Rows say which skill (skill pane row + its paired spell) a character of
 /// a given class/race receives at login; the catalog lives in the skills
 /// lookup. Restriction masks follow Class.Mask/Race.Mask (0 = wildcard).
@@ -113,17 +113,17 @@ const grant_rows: [db.initial_skills.rows.len]GrantRow = blk: {
     var converted: [sorted.len]GrantRow = undefined;
     for (sorted, 0..) |row, i| {
         const skill = skills.findSkill(@intCast(row.skill_id)) orelse {
-            @compileError(std.fmt.comptimePrint("initial_skills.json references unknown skill id: {d}", .{row.skill_id}));
+            @compileError(std.fmt.comptimePrint("initial_skills.zon references unknown skill id: {d}", .{row.skill_id}));
         };
 
         if (initial_spells.grantsSpellId(skill.spell_id)) {
-            @compileError(std.fmt.comptimePrint("spell {d} is granted by both initial_spells.json and skills.json {d}", .{ skill.spell_id, skill.skill_id }));
+            @compileError(std.fmt.comptimePrint("spell {d} is granted by both initial_spells.zon and skills.zon {d}", .{ skill.spell_id, skill.skill_id }));
         }
 
         const value: u16 = @intCast(row.value);
         const max: u16 = @intCast(row.max);
         if (value > max) {
-            @compileError(std.fmt.comptimePrint("initial_skills.json skill {d} has value {d} above max {d}", .{ row.skill_id, value, max }));
+            @compileError(std.fmt.comptimePrint("initial_skills.zon skill {d} has value {d} above max {d}", .{ row.skill_id, value, max }));
         }
 
         converted[i] = .{
@@ -139,7 +139,7 @@ const grant_rows: [db.initial_skills.rows.len]GrantRow = blk: {
         const a = converted[i - 1];
         const b = converted[i];
         if (a.skill_id == b.skill_id and a.class_mask.value == b.class_mask.value and a.race_mask.value == b.race_mask.value) {
-            @compileError(std.fmt.comptimePrint("duplicate initial skill grant in game_data/db/initial_skills.json: skill {d}", .{b.skill_id}));
+            @compileError(std.fmt.comptimePrint("duplicate initial skill grant in game_data/db/initial_skills.zon: skill {d}", .{b.skill_id}));
         }
     }
 

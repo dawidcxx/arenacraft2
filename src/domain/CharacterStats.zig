@@ -95,7 +95,7 @@ fn suitItem(entry: u32, stamina: u32, intellect: u32, armor: u32) ItemDef {
 }
 
 fn tuxedoEquipped() [19]?ItemDef {
-    // The starter suit's tuxedo pieces (game_data/db/items.json) in their
+    // The starter suit's tuxedo pieces (game_data/db/items.zon) in their
     // slots: chest, legs, feet.
     var equipped: [19]?ItemDef = .{null} ** 19;
     equipped[4] = suitItem(6834, 12, 8, 150);

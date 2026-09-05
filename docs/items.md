@@ -6,8 +6,8 @@ and the extension points to use when this grows.
 ## Data flow
 
 ```
-game_data/db/items.json ──┐
-game_data/db/starter_suit.json ──┤ build.zig codegen (re-runs on every build)
+game_data/db/items.zon ──┐
+game_data/db/starter_suit.zon ──┤ build.zig codegen (re-runs on every build)
                           v
 game_data_db (generated rows module)
                           v
@@ -59,7 +59,7 @@ ECS Stats component -> PlayerCreate update block (create_object2)
 
 ### Adding a new stat
 
-1. Add the column to `game_data/db/items.json` — **every row**; the codegen
+1. Add the column to `game_data/db/items.zon` — **every row**; the codegen
    takes the column set from the first array element (missing keys
    zero-fill silently).
 2. Extend `ItemDef` (domain/ItemDef.zig), its comptime build in
@@ -71,8 +71,8 @@ ECS Stats component -> PlayerCreate update block (create_object2)
 
 ### Starter suit
 
-Data-driven from `game_data/db/starter_suit.json` (slot + item_entry), parsed
+Data-driven from `game_data/db/starter_suit.zon` (slot + item_entry), parsed
 by `game_data/equipment.zig`. Slots must be
 unique and valid — enforced at comptime; duplicate item entries in
-`items.json` are a compile error (binary search requires strictly
+`items.zon` are a compile error (binary search requires strictly
 increasing entries).

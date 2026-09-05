@@ -7,7 +7,7 @@ const domain = @import("domain");
 const Class = domain.Class;
 const Race = domain.Race;
 
-/// Login spell grants, from the game_data_db/initial_spells.json rows.
+/// Login spell grants, from the game_data_db/initial_spells.zon rows.
 /// Rows say which spell a character of a given class/race receives at
 /// login; spell definitions themselves live in the spells lookup.
 /// Restriction masks follow Class.Mask/Race.Mask (0 = wildcard).
@@ -99,7 +99,7 @@ const grant_rows: [db.initial_spells.rows.len]GrantRow = blk: {
     var converted: [sorted.len]GrantRow = undefined;
     for (sorted, 0..) |row, i| {
         if (spells.findSpell(@intCast(row.spell_id)) == null) {
-            @compileError(std.fmt.comptimePrint("initial_spells.json references unknown spell entry: {d}", .{row.spell_id}));
+            @compileError(std.fmt.comptimePrint("initial_spells.zon references unknown spell entry: {d}", .{row.spell_id}));
         }
 
         converted[i] = .{
@@ -113,7 +113,7 @@ const grant_rows: [db.initial_spells.rows.len]GrantRow = blk: {
         const a = converted[i - 1];
         const b = converted[i];
         if (a.spell_id == b.spell_id and a.class_mask.value == b.class_mask.value and a.race_mask.value == b.race_mask.value) {
-            @compileError(std.fmt.comptimePrint("duplicate initial spell grant in game_data/db/initial_spells.json: spell {d}", .{b.spell_id}));
+            @compileError(std.fmt.comptimePrint("duplicate initial spell grant in game_data/db/initial_spells.zon: spell {d}", .{b.spell_id}));
         }
     }
 

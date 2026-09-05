@@ -32,7 +32,7 @@ fn sendClientInit(map_ecs: *MapEcs, frame: MapEcs.Frame, entity: ecs.Entity) !vo
     try map_ecs.sendTo(entity, protocol.world.TalentsInfoServer{});
 
     // Spellbook = explicit login grants + spells implied by skill grants
-    // (skills.json pairs, e.g. Language Common). Disjoint by comptime check.
+    // (skills.zon pairs, e.g. Language Common). Disjoint by comptime check.
     var spell_ids: [game_data.initial_spells.max_granted + game_data.initial_skills.max_granted]u32 = undefined;
     var spell_len: usize = 0;
     for (game_data.initial_spells.grantsFor(appearance.class_id, appearance.race_id).slice()) |spell_id| {

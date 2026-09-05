@@ -1,4 +1,4 @@
-//! Spell entry lookup over the game_data_db/spells.json rows, conforming
+//! Spell entry lookup over the game_data_db/spells.zon rows, conforming
 //! to domain.SpellDef. Duplicate entries fail the build.
 
 const std = @import("std");
@@ -49,7 +49,7 @@ const sorted_spells: [db.spells.rows.len]SpellDef = blk: {
 
     for (1..arr.len) |i| {
         if (arr[i].entry == arr[i - 1].entry)
-            @compileError(std.fmt.comptimePrint("duplicate spell entry in game_data/db/spells.json: {d}", .{arr[i].entry}));
+            @compileError(std.fmt.comptimePrint("duplicate spell entry in game_data/db/spells.zon: {d}", .{arr[i].entry}));
     }
 
     break :blk arr;

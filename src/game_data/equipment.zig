@@ -1,4 +1,4 @@
-//! Starter outfit lookup over the game_data_db/starter_suit.json rows.
+//! Starter outfit lookup over the game_data_db/starter_suit.zon rows.
 //! An invalid slot number or duplicate slot entry fails the build.
 
 const db = @import("game_data_db");

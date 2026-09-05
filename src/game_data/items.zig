@@ -1,4 +1,4 @@
-//! Item entry lookup over the game_data_db/items.json rows, conforming to
+//! Item entry lookup over the game_data_db/items.zon rows, conforming to
 //! domain.ItemDef. Duplicate entries fail the build.
 
 const std = @import("std");
@@ -51,7 +51,7 @@ const sorted_items: [db.items.rows.len]ItemDef = blk: {
     // increasing entries; duplicates would be a game-data authoring bug.
     for (1..arr.len) |i| {
         if (arr[i].entry == arr[i - 1].entry)
-            @compileError(std.fmt.comptimePrint("duplicate item entry in game_data/db/items.json: {d}", .{arr[i].entry}));
+            @compileError(std.fmt.comptimePrint("duplicate item entry in game_data/db/items.zon: {d}", .{arr[i].entry}));
     }
 
     break :blk arr;

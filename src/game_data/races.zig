@@ -5,7 +5,7 @@ const domain = @import("domain");
 const Race = domain.Race;
 
 /// Static ChrRaces.dbc-derived data for playable races, sourced from
-/// `src/game_data/races.json`. Faction template ids come from
+/// `src/game_data/races.zon`. Faction template ids come from
 /// FactionTemplate.dbc, display ids from ChrRaces.dbc.
 pub const RaceInfo = struct {
     faction_template: u32,

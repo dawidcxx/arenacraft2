@@ -12,13 +12,13 @@ Key directories:
 - `src/protocol/`: isolated auth, world, chat, movement, update-object wire protocol code.
 - `src/domain/`: plain data types shared across the application (ids, defs, transfer objects). No lookups, no JSON parsing.
 - `src/game_data/`: parses the generated `game_data_db` rows into lookups conforming to domain types.
-- `src/game_data/db/`: plain JSON source data consumed by `build.zig` to generate the `game_data_db` module.
+- `src/game_data/db/`: plain ZON source data consumed by `build.zig` to generate the `game_data_db` module.
 - `src/db/`: Zig database query layer.
 - `src/world/`: game world simulation and ECS integration.
 - `src/stdx/`: shared utilities used by Zig modules.
 - `manager/src/db/migrations/sql/`: database migrations managed by the sidecar.
 
-Where to put things: plain types (id enums, def structs, transfer objects) belong in `domain`. Data mapped from a `.dbc` file belongs in `game_data/db` as JSON, with its lookup in `game_data`. Static tables that never need JSON (e.g. hardcoded client creation templates) live in `game_data` as Zig. Anything that binary-searches over rows is a `game_data` lookup, never a `domain` resident; small convenience switches on domain enums (like `Class.powerTypeId`) are fine in `domain`.
+Where to put things: plain types (id enums, def structs, transfer objects) belong in `domain`. Data mapped from a `.dbc` file belongs in `game_data/db` as ZON, with its lookup in `game_data`. Static tables that never need JSON (e.g. hardcoded client creation templates) live in `game_data` as Zig. Anything that binary-searches over rows is a `game_data` lookup, never a `domain` resident; small convenience switches on domain enums (like `Class.powerTypeId`) are fine in `domain`.
 
 ## Tooling
 
