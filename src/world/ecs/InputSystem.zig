@@ -120,24 +120,53 @@ fn handleCastRequest(
     map_ecs: *MapEcs,
     cast_request: EcsInput.PlayerCastSpell,
 ) !void {
+    const spell_cast_entity = handleCastRequestImpl(map_ecs, cast_request) catch |e| switch (e) {
+        error.CastFailed => {
+            log.debug("Failing spellcast (spell_id={})", .{cast_request.packet.spell_id});
+            return;
+        },
+    };
+    try map_ecs.addEvent(.{ .spell_cast_fired = .{ .spell_cast = spell_cast_entity } });
+}
+
+fn handleCastRequestImpl(
+    map_ecs: *MapEcs,
+    cast_request: EcsInput.PlayerCastSpell,
+) error{CastFailed}!ecs.Entity {
+    const player = map_ecs.findPlayer(cast_request.account_id) orelse unreachable;
     const spell_def = game_data.spells.spells_db.findSpellById(cast_request.packet.spell_id) orelse {
-        const player = map_ecs.findPlayer(cast_request.account_id) orelse return;
+        @branchHint(.unlikely);
         const packet = protocol.spell.CastFailedServer{
             .spell_id = cast_request.packet.spell_id,
             .result = .not_known,
             .cast_count = cast_request.packet.cast_count,
         };
-        try map_ecs.sendTo(player, packet);
-        return;
+        map_ecs.sendTo(player, packet) catch {};
+        return error.CastFailed;
     };
 
     var registry = &map_ecs.registry;
 
     const spell_ent = registry.create();
-    registry.add(spell_ent, component.SpellCast{ .spell_id = spell_def.spell_id, .school = spell_def.school });
+    errdefer registry.destroy(spell_ent);
+
+    registry.add(spell_ent, component.SpellCast{ .spell_id = spell_def.spell_id, .school = spell_def.school, .caster = player });
     registry.add(spell_ent, component.SpellName{ .name = spell_def.name });
 
     if (spell_def.cast_time_ms) |cast_time_ms| registry.add(spell_ent, component.CastTime{ .elapsed = cast_time_ms });
+    if (spell_def.needs_target) {
+        const target = map_ecs.findEntityByGuid(cast_request.packet.target_guid) orelse {
+            const packet = protocol.spell.CastFailedServer{
+                .spell_id = cast_request.packet.spell_id,
+                .result = .bad_implicit_targets,
+                .cast_count = cast_request.packet.cast_count,
+            };
+            map_ecs.sendTo(player, packet) catch {};
+            return error.CastFailed;
+        };
 
-    map_ecs.addEvent(.{ .spell_cast_fired = spell_ent });
+        registry.add(spell_ent, component.SpellTarget{ .target = target });
+    }
+
+    return spell_ent;
 }

@@ -33,9 +33,10 @@ pub const Stats = struct { derived: domain.character_stats.DerivedStats };
 pub const SpellName = struct { name: []const u8 };
 pub const CastTime = struct { elapsed: u32 };
 pub const ManaCost = struct { cost: u32 };
-pub const SingleTarget = struct { target: Entity };
+pub const SpellTarget = struct { target: Entity };
+pub const Projectile = struct { speed: u32 };
 
 // @root
 pub const Player = struct { session: *Session };
 // @root
-pub const SpellCast = struct { spell_id: u32, school: domain.SpellDef.School };
+pub const SpellCast = struct { spell_id: u32, school: domain.SpellDef.School, caster: Entity };

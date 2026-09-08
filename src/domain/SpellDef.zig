@@ -15,6 +15,9 @@ pub const SpellDef = struct {
     school: School,
 
     cast_time_ms: ?u32,
+
+    needs_target: bool,
+
     /// Max cast/attack distance in yards.
     range_yards: u32,
     min_damage: u32,

@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 
 const ecs = @import("ecs");
 const stdx = @import("stdx");
+const domain = @import("domain");
 const Arc = stdx.Arc;
 const ArcRuntime = stdx.ArcRuntime;
 
@@ -93,6 +94,18 @@ pub const MapEcs = struct {
         return null;
     }
 
+    /// Linear scan for the entity carrying a given object guid.
+    pub fn findEntityByGuid(self: *MapEcs, guid: ?domain.ObjectGuid) ?ecs.Entity {
+        if (guid == null) return null;
+
+        var view = self.registry.view(.{component.Guid}, .{});
+        var iter = view.entityIterator();
+        while (iter.next()) |entity| {
+            if (self.registry.getConst(component.Guid, entity).value.raw == guid.?.raw) return entity;
+        }
+        return null;
+    }
+
     pub fn sendTo(self: *Self, player_entity: ecs.Entity, packet_unmarshalled: anytype) !void {
         const packet_bytes: Arc([]const u8) = try .of(packet_unmarshalled.marshal(ArcRuntime.allocator()));
         defer packet_bytes.release();
@@ -106,13 +119,13 @@ pub const MapEcs = struct {
 
         const opcode = @TypeOf(packet_unmarshalled).opcode;
 
-        try self.output_buffer.append(self.gpa, .{
+        self.output_buffer.append(self.gpa, .{
             .sendTo = .{
                 .opcode = @intFromEnum(opcode),
                 .data = packet_bytes.retain(),
                 .recv = player_entity,
             },
-        });
+        }) catch unreachable;
     }
 
     const BroadcastProps = struct { ignore_sender: bool };

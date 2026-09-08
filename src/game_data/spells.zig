@@ -20,6 +20,7 @@ fn mapSpellRow(comptime row: db.spells.Row) SpellDef {
         .name = row.name,
         .school = stdx.mapEnum(SpellDef.School, row.school),
         .cast_time_ms = if (row.cast_time_ms) |ms| @intCast(ms) else null,
+        .needs_target = row.needs_target orelse false,
         .range_yards = @intCast(row.range_yards),
         .min_damage = @intCast(row.min_damage),
         .max_damage = @intCast(row.max_damage),
@@ -41,9 +42,12 @@ test "spells_db finds entries as expected" {
 
     const auto_attack = spells_db.findSpellById(6603) orelse return error.MissingSpell;
     try t.expectEqual(domain.SpellDef.School.normal, auto_attack.school);
-    try t.expectEqual(@as(u32, 0), auto_attack.cast_time_ms);
+    try t.expect(auto_attack.cast_time_ms == null);
     try t.expectEqual(@as(u32, 5), auto_attack.range_yards);
     try t.expect(auto_attack.is_melee);
+
+    const language_common = spells_db.findSpellById(668) orelse return error.MissingSpell;
+    try t.expect(language_common.cast_time_ms == null);
 
     try t.expect(spells_db.findSpellById(0) == null);
 }

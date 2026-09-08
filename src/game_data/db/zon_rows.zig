@@ -7,45 +7,84 @@
 //! comptime_int -> i64, comptime_float -> f64, bool -> bool, string
 //! literals -> []const u8, and enum literal columns (`.faction = .horde`)
 //! -> an anonymous `enum` derived from the distinct literal names used.
+//! A field that is `null` or omitted in any row makes its whole column
+//! optional; a column whose concrete value kind varies across rows (int
+//! vs string vs enum literal, ...) is a compile error.
 
 const std = @import("std");
 
 /// Runtime row type for a pasted ZON table. An empty table yields an empty
-/// struct. Rows must be homogeneous: every row needs the same fields, and a
-/// column may not mix kinds (write `1.0` for float columns; enum literal
-/// columns must be enum literals in every row).
+/// struct. Rows must share the same column set; a field may be omitted or
+/// `null` in any row, which makes the whole column optional (`?i64` etc.).
+/// A column may not mix concrete value kinds (write `1.0` for float
+/// columns; enum literal columns must be enum literals in every row that
+/// has the column).
 pub fn Row(comptime raw: anytype) type {
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
     if (rows.len == 0) return struct {};
 
-    const columns = std.meta.fields(@TypeOf(@field(raw, rows[0].name)));
-    comptime var names: [columns.len][]const u8 = undefined;
-    comptime var types: [columns.len]type = undefined;
-    inline for (columns, 0..) |f, j| {
-        names[j] = f.name;
-        types[j] = columnType(raw, f.name);
+    comptime var names: []const []const u8 = &.{};
+    inline for (rows) |rf| {
+        inline for (std.meta.fields(@TypeOf(@field(raw, rf.name)))) |cf| {
+            if (!containsName(names, cf.name)) names = names ++ &[_][]const u8{cf.name};
+        }
+    }
+    comptime var types: [names.len]type = undefined;
+    inline for (names, 0..) |name, j| {
+        types[j] = columnType(raw, name);
     }
     return @Struct(
         .auto,
         null,
-        &names,
+        names,
         &types,
         &@splat(std.builtin.Type.StructField.Attributes{}),
     );
 }
 
+fn containsName(comptime names: []const []const u8, comptime name: []const u8) bool {
+    for (names) |n| {
+        if (std.mem.eql(u8, n, name)) return true;
+    }
+    return false;
+}
+
 fn columnType(comptime raw: anytype, comptime col: []const u8) type {
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
-    const first = rowFieldType(@TypeOf(@field(raw, rows[0].name)), col);
-    const enum_col = isEnumLiteral(first);
-    inline for (rows[1..]) |rf| {
-        const ft = rowFieldType(@TypeOf(@field(raw, rf.name)), col);
-        if (enum_col != isEnumLiteral(ft)) {
-            @compileError("zon column `" ++ col ++ "` mixes enum literals with other values (row " ++ rf.name ++ ")");
+    comptime var base: type = @TypeOf(null);
+    comptime var nullable = false;
+    inline for (rows) |rf| {
+        const RowRaw = @TypeOf(@field(raw, rf.name));
+        if (@hasField(RowRaw, col)) {
+            const ft = rowFieldType(RowRaw, col);
+            if (@typeInfo(ft) == .null) {
+                nullable = true;
+            } else if (base == @TypeOf(null)) {
+                base = ft;
+            } else if (columnKind(base) != columnKind(ft)) {
+                @compileError("zon column `" ++ col ++ "` mixes value kinds (row " ++ rf.name ++ ")");
+            }
+        } else {
+            nullable = true;
         }
     }
-    if (enum_col) return enumLiteralType(raw, col);
-    return scalarType(first);
+    const ty = if (isEnumLiteral(base)) enumLiteralType(raw, col) else scalarType(base);
+    return if (nullable) ?ty else ty;
+}
+
+/// Normalizes a concrete value type for cross-row kind comparison. String
+/// literals of different lengths are distinct types but the same kind;
+/// enum literals already share one type.
+fn columnKind(comptime T: type) type {
+    return switch (@typeInfo(T)) {
+        .pointer => |p| blk: {
+            const is_string = p.size == .one and
+                @typeInfo(p.child) == .array and
+                @typeInfo(p.child).array.child == u8;
+            break :blk if (is_string) []const u8 else T;
+        },
+        else => T,
+    };
 }
 
 fn isEnumLiteral(comptime T: type) bool {
@@ -90,20 +129,20 @@ fn enumLiteralType(comptime raw: anytype, comptime col: []const u8) type {
     comptime var names: [rows.len][]const u8 = undefined;
     comptime var count: usize = 0;
     inline for (rows) |rf| {
-        const name = @tagName(@field(@field(raw, rf.name), col));
-        var seen = false;
-        for (names[0..count]) |n| {
-            if (std.mem.eql(u8, n, name)) seen = true;
-        }
-        if (!seen) {
-            names[count] = name;
-            count += 1;
+        const RowRaw = @TypeOf(@field(raw, rf.name));
+        if (@hasField(RowRaw, col) and @typeInfo(rowFieldType(RowRaw, col)) != .null) {
+            const name = @tagName(@field(@field(raw, rf.name), col));
+            if (!containsName(names[0..count], name)) {
+                names[count] = name;
+                count += 1;
+            }
         }
     }
     return @Enum(u32, .exhaustive, names[0..count], &std.simd.iota(u32, count));
 }
 
 /// Materializes a pasted ZON table as a comptime-known `[]const Row`.
+/// Fields a row omits get `null` (such columns are optional by inference).
 pub fn materialize(comptime RowT: type, comptime raw: anytype) []const RowT {
     const raw_fields = @typeInfo(@TypeOf(raw)).@"struct".fields;
     const arr = blk: {
@@ -111,7 +150,11 @@ pub fn materialize(comptime RowT: type, comptime raw: anytype) []const RowT {
         inline for (raw_fields, 0..) |f, i| {
             const r = @field(raw, f.name);
             inline for (std.meta.fields(RowT)) |rf| {
-                @field(out[i], rf.name) = @field(r, rf.name);
+                if (@hasField(@TypeOf(r), rf.name)) {
+                    @field(out[i], rf.name) = @field(r, rf.name);
+                } else {
+                    @field(out[i], rf.name) = null;
+                }
             }
         }
         break :blk out;
@@ -166,6 +209,38 @@ test "enum and scalar columns coexist" {
     try testing.expectEqualStrings("axe", @tagName(rows[1].kind));
     try testing.expectEqual(@as(i64, 12), rows[1].dmg);
     try testing.expectEqualStrings("short", rows[0].label);
+}
+
+test "null and omitted fields make columns optional" {
+    const raw = .{
+        .{ .id = 1, .n = 10, .label = "x" },
+        .{ .id = 2, .n = null },
+        .{ .id = 3 },
+    };
+    const T = Row(raw);
+    const rows = materialize(T, raw);
+    try testing.expectEqual(?i64, @TypeOf(rows[0].n));
+    try testing.expectEqual(@as(i64, 10), rows[0].n.?);
+    try testing.expect(rows[1].n == null);
+    try testing.expect(rows[2].n == null);
+    try testing.expectEqual(?[]const u8, @TypeOf(rows[0].label));
+    try testing.expectEqualStrings("x", rows[0].label.?);
+    try testing.expect(rows[1].label == null);
+    try testing.expect(rows[2].label == null);
+    try testing.expectEqual(@as(i64, 3), rows[2].id);
+}
+
+test "enum columns support null and omitted fields" {
+    const raw = .{
+        .{ .id = 1, .faction = .horde },
+        .{ .id = 2, .faction = null },
+        .{ .id = 3 },
+    };
+    const T = Row(raw);
+    const rows = materialize(T, raw);
+    try testing.expectEqualStrings("horde", @tagName(rows[0].faction.?));
+    try testing.expect(rows[1].faction == null);
+    try testing.expect(rows[2].faction == null);
 }
 
 test "empty table yields empty row struct" {

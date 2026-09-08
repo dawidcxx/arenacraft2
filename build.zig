@@ -127,8 +127,9 @@ fn addGameData(
 /// content is pasted verbatim into a generated `foo.zig` and the Zig
 /// compiler itself derives the `Row` struct via comptime reflection (see
 /// `src/game_data/db/zon_rows.zig`): ints become `i64`, floats `f64`,
-/// bools `bool`, strings `[]const u8`. Rows must be homogeneous (same
-/// fields in every row; write `1.0` for a float column). `build()` re-runs
+/// bools `bool`, strings `[]const u8`. Every row must list the same
+/// columns; a field omitted or `null` in any row makes that column
+/// optional (`?i64` etc.). Write `1.0` for a float column. `build()` re-runs
 /// on every `zig build`, so edits to the data files are picked up
 /// automatically.
 fn generateGameDataDbModule(b: *std.Build) !*std.Build.Module {
