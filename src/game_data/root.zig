@@ -5,7 +5,7 @@
 pub const character_create = @import("character_create.zig");
 pub const items = @import("items.zig");
 pub const spells = @import("spells.zig");
-pub const initial_spells = @import("initial_spells.zig");
+pub const initial_spells_db = @import("initial_spells.zig").initial_spells_db;
 pub const skills = @import("skills.zig");
 pub const initial_skills = @import("initial_skills.zig");
 pub const equipment = @import("equipment.zig");

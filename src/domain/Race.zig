@@ -13,6 +13,7 @@ pub const Race = enum(u8) {
     tauren = 6,
     gnome = 7,
     troll = 8,
+    goblin = 9,
     blood_elf = 10,
     draenei = 11,
 
@@ -20,6 +21,7 @@ pub const Race = enum(u8) {
     /// data rows (login spell grants today; start locations, racial
     /// traits later).
     pub const Mask = stdx.Mask(@This());
+    pub const Meta = stdx.EnumMeta(@This());
 };
 
 // Generic mask behavior (wildcard, covers, fromJson) is covered by the

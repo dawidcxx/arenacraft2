@@ -1,0 +1,57 @@
+const std = @import("std");
+const stdx = @import("stdx");
+const db = @import("game_data_db");
+const spells_db = @import("spells.zig").spells_db;
+
+const domain = @import("domain");
+
+const Class = domain.Class;
+const Race = domain.Race;
+
+pub const InitialSpell = struct {
+    spell_id: u32,
+    class_mask: Class.Mask,
+    race_mask: Race.Mask,
+};
+
+pub const initial_spells_db = struct {
+    /// Grant rows whose race_mask covers `race` (wildcards included).
+    /// Class scoping is left to the caller; see grantsFor. Spell ids
+    /// ascending.
+    pub fn getAllForRace(race: Race) []const InitialSpell {
+        return rows_by_race.get(race);
+    }
+};
+
+const rows = stdx.SortedTable(
+    "db/initial_spells.zon",
+    db.initial_spells.rows,
+    mapRow,
+    .spell_id,
+);
+
+pub fn mapRow(row: db.initial_spells.Row) InitialSpell {
+    return .{
+        .spell_id = row.spell_id,
+        .class_mask = Class.Mask.fromJson(row.class_mask),
+        .race_mask = Race.Mask.fromJson(row.race_mask),
+    };
+}
+
+/// One group per Race/Class variant; each slice keeps row order. Mask
+/// scoping is many-to-many: one row lands in every group it matches.
+const rows_by_race = stdx.groupBy(Race, rows.entries, raceMatch);
+const rows_by_class = stdx.groupBy(Class, rows.entries, classMatch);
+const unscoped_rows = stdx.filter(rows.entries, isUnscoped);
+
+fn raceMatch(row: InitialSpell, race: Race) bool {
+    return row.race_mask.has(race);
+}
+
+fn classMatch(row: InitialSpell, klass: Class) bool {
+    return row.class_mask.has(klass);
+}
+
+fn isUnscoped(row: InitialSpell) bool {
+    return row.class_mask.value == 0 and row.race_mask.value == 0;
+}

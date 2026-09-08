@@ -49,7 +49,13 @@ pub fn Mask(comptime Id: type) type {
 
         /// True when this mask is the wildcard or covers `id`.
         pub fn covers(self: Self, id: Id) bool {
-            return self.value == 0 or self.value & of(id).value != 0;
+            return self.value == 0 or self.has(id);
+        }
+
+        /// True only when the mask's bit for `id` is set; the wildcard
+        /// does not match.
+        pub fn has(self: Self, id: Id) bool {
+            return self.value & of(id).value != 0;
         }
     };
 }
@@ -76,6 +82,18 @@ test "mask covers honors the wildcard" {
     try t.expect(FruitMask.of(.apple).covers(.apple));
     try t.expect(!FruitMask.of(.apple).covers(.banana));
     try t.expect(FruitMask.fromJson(FruitMask.of(.apple).value | FruitMask.of(.banana).value).covers(.banana));
+}
+
+test "has ignores the wildcard" {
+    const t = std.testing;
+
+    const Fruit = enum(u8) { apple = 1, banana = 2 };
+    const FruitMask = Mask(Fruit);
+
+    try t.expect(!FruitMask.all.has(.banana));
+    try t.expect(FruitMask.of(.apple).has(.apple));
+    try t.expect(!FruitMask.of(.apple).has(.banana));
+    try t.expect(FruitMask.fromJson(FruitMask.of(.apple).value | FruitMask.of(.banana).value).has(.banana));
 }
 
 test "fromJson keeps known bits" {

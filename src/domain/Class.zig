@@ -15,6 +15,7 @@ pub const Class = enum(u8) {
     shaman = 7,
     mage = 8,
     warlock = 9,
+    monk = 10,
     druid = 11,
 
     pub fn powerTypeId(self: Class) PowerTypeId {
@@ -29,6 +30,7 @@ pub const Class = enum(u8) {
     /// Class restriction bitmask: one bit per class, 0 = all. Class-scopes
     /// data rows (login spell grants today; talent/feature gates later).
     pub const Mask = stdx.Mask(@This());
+    pub const Meta = stdx.EnumMeta(@This());
 };
 
 // Generic mask behavior (wildcard, covers, fromJson) is covered by the

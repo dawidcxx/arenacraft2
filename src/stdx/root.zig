@@ -8,6 +8,9 @@ pub const CoWList = @import("CoWList.zig").CoWList;
 pub const Clock = @import("Clock.zig").Clock;
 pub const ShutdownSignal = @import("ShutdownSignal.zig").ShutdownSignal;
 pub const Mask = @import("Mask.zig").Mask;
+pub const EnumMeta = @import("EnumMeta.zig").EnumMeta;
+pub const filter = @import("Comptime.zig").filter;
+pub const groupBy = @import("Comptime.zig").groupBy;
 pub const SortedTable = @import("SortedTable.zig").SortedTable;
 
 pub const name = "stdx";
@@ -139,5 +142,7 @@ test {
     _ = @import("./CoWList.zig");
     _ = @import("./StringList.zig");
     _ = @import("./Mask.zig");
+    _ = @import("./Comptime.zig");
+    _ = @import("./EnumMeta.zig");
     _ = @import("./SortedTable.zig");
 }
