@@ -19,5 +19,5 @@ test MapEcs {
     var map_ecs = try MapEcs.init(alloc);
     defer map_ecs.deinit();
 
-    try map_ecs.run(.{ .clock = &clock, .io = io, .arena_allocator = alloc, .dt = 1, .time_now = now_ms });
+    try map_ecs.run(.{ .clock = &clock, .io = io, .arena_allocator = alloc, .dt = 1, .time_now = @truncate(now_ms) });
 }

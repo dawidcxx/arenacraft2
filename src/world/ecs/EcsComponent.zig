@@ -1,3 +1,4 @@
+const std = @import("std");
 const domain = @import("domain");
 const ecs = @import("ecs");
 const stdx = @import("stdx");
@@ -37,7 +38,14 @@ pub const PowerCost = struct { cost: u32 };
 pub const SpellTarget = struct { target: Entity };
 pub const SpellReady = struct {};
 
+// Aura related components
+pub const AuraDuration = struct { elapsed: u32 };
+pub const AuraMaxDuration = struct { max_duration: u32 };
+pub const AuraMovementSlow = struct { pct: u8 };
+
 // @root
 pub const Player = struct { session: *Session };
 // @root
 pub const SpellCast = struct { spell_id: u32, school: domain.SpellDef.School, cast_count: u8, caster: Entity, effects: []const domain.SpellDef.Effect };
+// @root
+pub const Aura = struct { owner: ecs.Entity, caster: ecs.Entity, spell_id: u32 };

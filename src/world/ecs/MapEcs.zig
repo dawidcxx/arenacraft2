@@ -44,6 +44,7 @@ pub const MapEcs = struct {
             .player_joined = .empty,
             .player_left = .empty,
             .spell_cast_fired = .empty,
+            .aura_applied = .empty,
         });
 
         return .{
@@ -66,6 +67,7 @@ pub const MapEcs = struct {
     pub fn run(self: *MapEcs, frame: Frame) !void {
         try @import("./InputSystem.zig").run(self, frame);
         try @import("./SpellSystem.zig").run(self, frame);
+        try @import("./AuraSystem.zig").run(self, frame);
         try @import("./PlayerVisibilitySystem.zig").run(self, frame);
         try @import("./ClientInitSystem.zig").run(self, frame);
         @import("./OutboundPacketSystem.zig").run(self, frame);

@@ -9,9 +9,12 @@ pub const SpellDef = struct {
         arcane = 6,
     };
 
+    /// Reduces the target's movement speed by `pct` percent for `duration` ms.
+    pub const MovementSlow = struct { duration: u24, pct: u8 };
+
     pub const Effect = union(enum) {
         damage: struct { min: u32, max: u32 },
-        movement_slow: struct { duration: u24, pct: u8 },
+        movement_slow: MovementSlow,
         direct_melee_damage: struct { min: u32, max: u32 },
     };
 
