@@ -10,6 +10,10 @@ pub const PlayerMove = struct {
     account_id: u64,
     packet: protocol.movement.AllMovementPackets,
 };
+pub const PlayerCastSpell = struct {
+    account_id: u64,
+    packet: protocol.spell.CastSpellClient,
+};
 
 pub const LocalChat = struct { account_id: u64, packet: protocol.chat.MessageChatClient };
 
@@ -21,17 +25,20 @@ pub const Input = union(enum) {
         account_id: u64,
     },
     player_move: PlayerMove,
+    player_spell_cast: PlayerCastSpell,
     local_chat: LocalChat,
 };
 
 pub const EcsEventType = enum {
     player_joined,
     player_left,
+    spell_cast_fired,
 };
 
 pub const EcsEvent = union(EcsEventType) {
     player_joined: struct { player: ecs.Entity },
     player_left: struct { player: ecs.Entity, guid: domain.ObjectGuid },
+    spell_cast_fired: struct { spell_cast: ecs.Entity },
 };
 
 pub const Output = union(enum) {

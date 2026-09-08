@@ -18,6 +18,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) void {
             },
             .broadcast => |broadcast| {
                 defer broadcast.data.release();
+
                 var players_view = reg.view(.{component.Player}, .{});
                 var players_view_it = players_view.entityIterator();
                 while (players_view_it.next()) |player_entity| {

@@ -19,7 +19,7 @@ fn mapSpellRow(comptime row: db.spells.Row) SpellDef {
         .spell_id = @intCast(row.spell_id),
         .name = row.name,
         .school = stdx.mapEnum(SpellDef.School, row.school),
-        .cast_time_ms = @intCast(row.cast_time_ms),
+        .cast_time_ms = if (row.cast_time_ms) |ms| @intCast(ms) else null,
         .range_yards = @intCast(row.range_yards),
         .min_damage = @intCast(row.min_damage),
         .max_damage = @intCast(row.max_damage),

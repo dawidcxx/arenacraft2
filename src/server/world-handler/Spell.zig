@@ -1,5 +1,7 @@
 const std = @import("std");
 const domain = @import("domain");
+const proto = @import("protocol");
+const world = @import("world");
 
 const log = std.log.scoped(.handler_spell);
 
@@ -11,11 +13,16 @@ const log = std.log.scoped(.handler_spell);
 pub fn handleCastSpell(
     io: std.Io,
     player: *domain.Player,
-    payload: []const u8,
+    payload_scratch_buf: []const u8,
 ) !void {
-    _ = io;
-    _ = payload;
-    log.debug("Cast command captured (account_id={}); handling pending", .{player.account_id});
+    const packet = try proto.spell.CastSpellClient.unmarshal(payload_scratch_buf);
+    const map_reference: ?*world.MapInstance = @ptrCast(@alignCast(player.active_map_reference));
+
+    if (map_reference) |map| {
+        map.pushSpellCastAsync(io, .{ .account_id = player.account_id, .packet = packet });
+    } else {
+        log.warn("Player(account_id='{}') tried to cast spell but is not in map?", .{player.account_id});
+    }
 }
 
 /// CMSG_ATTACKSWING (0x141): the client toggled auto attack on a target.

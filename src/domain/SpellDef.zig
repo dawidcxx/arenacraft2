@@ -14,9 +14,7 @@ pub const SpellDef = struct {
 
     school: School,
 
-    /// 0 = instant. The client renders the cast bar from its own Spell.dbc;
-    /// this drives the server-side cast delay.
-    cast_time_ms: u32,
+    cast_time_ms: ?u32,
     /// Max cast/attack distance in yards.
     range_yards: u32,
     min_damage: u32,

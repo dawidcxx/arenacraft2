@@ -7,10 +7,9 @@ const Entity = ecs.Entity;
 const Index = ecs.Entity.Index;
 const Session = domain.Session;
 
-pub const Player = struct { session: *Session };
-pub const AccountId = struct { id: u64 };
 pub const Guid = struct { value: domain.ObjectGuid };
 
+pub const AccountId = struct { id: u64 };
 pub const Position = struct { x: f32, y: f32, z: f32 };
 pub const Orientation = struct { value: f32 };
 
@@ -28,13 +27,15 @@ pub const Appearance = struct {
 /// Mirrors domain.Character.visible_items (+ per-slot instance guids).
 pub const VisibleItems = struct { entries: [19]u32, guids: [19]u64 = .{0} ** 19 };
 pub const Level = struct { value: u8 };
-/// Mirrors domain.Character.derived: stats computed from equipped items.
 pub const Stats = struct { derived: domain.character_stats.DerivedStats };
 
-/// Transient outbound packet awaiting delivery. The entity is destroyed by
-/// OutboundPacketSystem once every recipient got the body.
-pub const Packet = struct { data: Arc([]const u8), opcode: u32 };
-pub const Broadcast = struct { sender: Index, ignore_sender: bool };
-pub const SendTo = struct { to: Entity };
+// Spell related components
+pub const SpellName = struct { name: []const u8 };
+pub const CastTime = struct { elapsed: u32 };
+pub const ManaCost = struct { cost: u32 };
+pub const SingleTarget = struct { target: Entity };
 
-pub const ObjectUpdateBlock = struct {} ;
+// @root
+pub const Player = struct { session: *Session };
+// @root
+pub const SpellCast = struct { spell_id: u32, school: domain.SpellDef.School };

@@ -44,6 +44,12 @@ pub const MapInstance = struct {
         };
     }
 
+    pub fn pushSpellCastAsync(self: *Self, io: std.Io, request: MapInstanceInbox.PlayerSpellCast) void {
+        self.inbox.putOne(io, .{ .player_cast_spell = request }) catch |e| {
+            log.info("Dropping .pushSpellCastAsync, reason='{}'", .{e});
+        };
+    }
+
     pub fn sendChatAsync(self: *Self, io: std.Io, request: MapInstanceInbox.Chat) void {
         self.inbox.putOne(io, .{ .chat = request }) catch |e| {
             log.info("Dropping .sendChatAsync, reason='{}'", .{e});
@@ -117,6 +123,9 @@ pub const MapInstance = struct {
                         .chat => |chat| {
                             self.map_ecs.addInput(.{ .local_chat = .{ .account_id = chat.account_id, .packet = chat.packet } });
                             // chat is async only, no ack
+                        },
+                        .player_cast_spell => |cast_request| {
+                            self.map_ecs.addInput(.{ .player_spell_cast = .{ .account_id = cast_request.account_id, .packet = cast_request.packet } });
                         },
                     }
 

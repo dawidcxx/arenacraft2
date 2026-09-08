@@ -42,6 +42,7 @@ pub const MapEcs = struct {
         const events = std.EnumArray(EcsEventType, std.ArrayList(EcsEvent)).init(.{
             .player_joined = .empty,
             .player_left = .empty,
+            .spell_cast_fired = .empty,
         });
 
         return .{
