@@ -19,7 +19,7 @@ pub const MapEcs = struct {
     pub const Frame = struct {
         io: std.Io,
         dt: u32,
-        time_now: u64,
+        time_now: u32,
         clock: *stdx.Clock,
         arena_allocator: std.mem.Allocator,
     };

@@ -55,8 +55,17 @@ pub const aura_flag_positive: u8 = 0x10;
 pub const aura_flag_duration: u8 = 0x20;
 pub const aura_flag_negative: u8 = 0x80;
 
-/// VictimState for a clean melee hit.
-pub const victim_state_hit: u8 = 1;
+/// VictimState values sent in SMSG_ATTACKERSTATEUPDATE (WoW 3.3.5).
+pub const VictimState = enum(u8) {
+    dodge = 0,
+    hit = 1,
+    block = 2,
+    parry = 3,
+    wound = 4,
+    wound_noxp = 5,
+    wound_noround = 6,
+    dead = 7,
+};
 /// HITINFO_NORMALSWING: no special flags on the hit.
 pub const hit_info_normal_swing: u32 = 0x0000_0000;
 
@@ -323,7 +332,7 @@ pub const AttackerStateUpdateServer = struct {
     attacker_guid: ObjectGuid,
     victim_guid: ObjectGuid,
     damage: u32,
-    victim_state: u8 = victim_state_hit,
+    victim_state: VictimState = .hit,
 
     pub fn marshal(self: AttackerStateUpdateServer, gpa: std.mem.Allocator) ![]u8 {
         var out: std.ArrayList(u8) = .empty;
@@ -338,7 +347,7 @@ pub const AttackerStateUpdateServer = struct {
         try appendU32(&out, gpa, self.school_mask);
         try appendF32(&out, gpa, @floatFromInt(self.damage));
         try appendU32(&out, gpa, self.damage);
-        try out.append(gpa, self.victim_state);
+        try out.append(gpa, @intFromEnum(self.victim_state));
         try appendU32(&out, gpa, 0); // attacker state
         try appendU32(&out, gpa, 0); // melee spell id
 
@@ -798,7 +807,7 @@ test "attacker state update carries the sub damage entry" {
     off += 4;
     try t.expectEqual(@as(u32, 2), std.mem.readInt(u32, body[off..][0..4], .little)); // u32 damage
     off += 4;
-    try t.expectEqual(victim_state_hit, body[off]);
+    try t.expectEqual(@intFromEnum(VictimState.hit), body[off]);
     off += 1;
     try t.expectEqual(off + 8, body.len); // attacker state + melee spell id
 }

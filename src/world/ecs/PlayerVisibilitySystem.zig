@@ -25,7 +25,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
         defer introduce_player_packet.deinit(frame.arena_allocator);
         try introduce_player_packet.add(frame.arena_allocator, .{
             .create_object2 = .{
-                .player_create = playerEntityToPlayerCreate(&registry, joining_player, @truncate(frame.time_now)),
+                .player_create = playerEntityToPlayerCreate(&registry, joining_player, frame.time_now),
             },
         });
         map_ecs.broadcast(.{ joining_player, .{ .ignore_sender = true } }, introduce_player_packet);
