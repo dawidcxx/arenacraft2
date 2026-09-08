@@ -415,22 +415,68 @@ pub const AuraUpdateServer = struct {
         errdefer out.deinit(gpa);
 
         try appendPackedGuid(&out, gpa, self.target_guid);
-        try out.append(gpa, self.slot);
-        if (self.spell_id == 0) {
-            try appendU32(&out, gpa, 0);
-            return out.toOwnedSlice(gpa);
-        }
+        try (AuraSlotUpdate{
+            .slot = self.slot,
+            .spell_id = self.spell_id,
+            .flags = self.flags,
+            .caster_level = self.caster_level,
+            .stacks = self.stacks,
+            .caster_guid = self.caster_guid,
+            .max_duration_ms = self.max_duration_ms,
+            .remaining_ms = self.remaining_ms,
+        }).marshalInto(&out, gpa);
+        return out.toOwnedSlice(gpa);
+    }
+};
 
-        try appendU32(&out, gpa, self.spell_id);
+/// One aura slot on the wire (AuraApplication::BuildUpdatePacket).
+/// `spell_id == 0` clears the slot; otherwise the spell, caster and
+/// remaining duration follow.
+pub const AuraSlotUpdate = struct {
+    slot: u8,
+    spell_id: u32 = 0,
+    flags: u8 = aura_flag_eff_index_0 | aura_flag_negative | aura_flag_duration,
+    caster_level: u8 = 1,
+    stacks: u8 = 1,
+    caster_guid: ObjectGuid = ObjectGuid.empty,
+    max_duration_ms: u32 = 0,
+    remaining_ms: u32 = 0,
+
+    /// Slot byte onward — everything after the packed target guid.
+    pub fn marshalInto(self: AuraSlotUpdate, out: *std.ArrayList(u8), gpa: std.mem.Allocator) !void {
+        try out.append(gpa, self.slot);
+        try appendU32(out, gpa, self.spell_id);
+        if (self.spell_id == 0) return;
+
         try out.append(gpa, self.flags);
         try out.append(gpa, self.caster_level);
         try out.append(gpa, self.stacks);
         if (self.flags & aura_flag_caster == 0) {
-            try appendPackedGuid(&out, gpa, self.caster_guid);
+            try appendPackedGuid(out, gpa, self.caster_guid);
         }
         if (self.flags & aura_flag_duration != 0) {
-            try appendU32(&out, gpa, self.max_duration_ms);
-            try appendU32(&out, gpa, self.remaining_ms);
+            try appendU32(out, gpa, self.max_duration_ms);
+            try appendU32(out, gpa, self.remaining_ms);
+        }
+    }
+};
+
+/// SMSG_AURA_UPDATE_ALL (0x495): every visible aura slot on one unit in a
+/// single packet — full refresh (e.g. the player's own auras on login);
+/// SMSG_AURA_UPDATE carries incremental slot changes.
+pub const AuraUpdateAllServer = struct {
+    pub const opcode: world_protocol.Opcode = .smsg_aura_update_all;
+
+    target_guid: ObjectGuid,
+    entries: []const AuraSlotUpdate = &.{},
+
+    pub fn marshal(self: AuraUpdateAllServer, gpa: std.mem.Allocator) ![]u8 {
+        var out: std.ArrayList(u8) = .empty;
+        errdefer out.deinit(gpa);
+
+        try appendPackedGuid(&out, gpa, self.target_guid);
+        for (self.entries) |entry| {
+            try entry.marshalInto(&out, gpa);
         }
         return out.toOwnedSlice(gpa);
     }
@@ -771,6 +817,51 @@ test "aura update omits the caster guid under the caster flag" {
     // packed target + slot + spell id + flags + level + stacks, no guid,
     // no durations (aura_flag_duration clear).
     try t.expectEqual(@as(usize, target.toPacked().len + 8), body.len);
+}
+
+test "aura update all with no entries is just the packed guid" {
+    const t = std.testing;
+    const gpa = t.allocator;
+
+    const target = ObjectGuid.player(2);
+    const body = try (AuraUpdateAllServer{ .target_guid = target }).marshal(gpa);
+    defer gpa.free(body);
+
+    try t.expectEqualSlices(u8, target.toPacked().slice(), body);
+}
+
+test "aura update all batches slot bodies after one target guid" {
+    const t = std.testing;
+    const gpa = t.allocator;
+
+    const target = ObjectGuid.player(2);
+    const body = try (AuraUpdateAllServer{
+        .target_guid = target,
+        .entries = &.{
+            .{ .slot = 0, .spell_id = 116, .flags = aura_flag_eff_index_0 },
+            .{ .slot = 1 }, // cleared slot
+        },
+    }).marshal(gpa);
+    defer gpa.free(body);
+
+    const packed_target = target.toPacked().slice();
+    var off = packed_target.len;
+
+    // entry 0: slot byte, spell id, flags, level, stacks, packed caster.
+    try t.expectEqual(@as(u8, 0), body[off]);
+    off += 1;
+    try t.expectEqual(@as(u32, 116), std.mem.readInt(u32, body[off..][0..4], .little));
+    off += 4 + 3;
+    try t.expectEqual(@as(u8, 0), body[off]); // empty caster guid packs to a zero mask byte
+    off += 1;
+
+    // entry 1: slot byte + zero spell id.
+    try t.expectEqual(@as(u8, 1), body[off]);
+    off += 1;
+    try t.expectEqual(@as(u32, 0), std.mem.readInt(u32, body[off..][0..4], .little));
+    off += 4;
+
+    try t.expectEqual(off, body.len);
 }
 
 test "attacker state update carries the sub damage entry" {
