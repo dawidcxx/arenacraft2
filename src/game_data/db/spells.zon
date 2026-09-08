@@ -7,6 +7,7 @@
         .needs_target = true,
         .range_yards = 30,
         .projectile_speed = 24,
+        .power_cost = 15,
         .effects = .{
             .{ .type = .damage, .min = 18, .max = 20 },
             .{ .type = .movement_slow, .duration = 5000, .pct = 40 },

@@ -138,7 +138,7 @@ pub const MapInstance = struct {
                     const now_ms = self.clock.nowMs();
                     try self.map_ecs.run(.{
                         .io = io,
-                        .dt = now_ms - self.last_tick_ms,
+                        .dt = @intCast(now_ms - self.last_tick_ms),
                         .time_now = now_ms,
                         .clock = self.clock,
                         // TODO: provide actual arena here

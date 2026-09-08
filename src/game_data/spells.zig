@@ -24,6 +24,7 @@ fn mapSpellRow(comptime row: db.spells.Row) SpellDef {
         .range_yards = if (row.range_yards) |y| @intCast(y) else null,
         .effects = mapEffects(row),
         .projectile_speed = if (row.projectile_speed) |ps| @intCast(ps) else null,
+        .power_cost = if (row.power_cost) |pc| @intCast(pc) else 0,
     };
 }
 

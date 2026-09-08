@@ -18,7 +18,7 @@ pub const MapEcs = struct {
     /// `run(*MapEcs, Frame)` signature stays stable.
     pub const Frame = struct {
         io: std.Io,
-        dt: u64,
+        dt: u32,
         time_now: u64,
         clock: *stdx.Clock,
         arena_allocator: std.mem.Allocator,
@@ -65,6 +65,7 @@ pub const MapEcs = struct {
 
     pub fn run(self: *MapEcs, frame: Frame) !void {
         try @import("./InputSystem.zig").run(self, frame);
+        try @import("./SpellSystem.zig").run(self, frame);
         try @import("./PlayerVisibilitySystem.zig").run(self, frame);
         try @import("./ClientInitSystem.zig").run(self, frame);
         @import("./OutboundPacketSystem.zig").run(self, frame);
@@ -81,6 +82,13 @@ pub const MapEcs = struct {
     pub fn addEvent(self: *MapEcs, event: EcsEvent) void {
         const tag = std.meta.activeTag(event);
         self.events.getPtr(tag).append(self.gpa, event) catch unreachable;
+    }
+
+    // TODO: make it queue up a event for the follow up frame
+    pub fn queueEvent(self: *MapEcs, event: EcsEvent) void {
+        _ = self; // autofix
+        _ = event; // autofix
+        @panic("TODO");
     }
 
     /// Linear scan for the player entity of an account. Maps are small;

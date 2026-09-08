@@ -21,7 +21,8 @@ pub const SpellDef = struct {
 
     cast_time_ms: ?u32, //       null = instant
     projectile_speed: ?u32, //   null = no travel phase, connects on cast
-    needs_target: bool, //      default = false
+    needs_target: bool, //       default = false
     range_yards: ?u32, //        null = infinite range
+    power_cost: u32, //          0 = free
     effects: []const Effect,
 };

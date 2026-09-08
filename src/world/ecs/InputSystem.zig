@@ -150,8 +150,14 @@ fn handleCastRequestImpl(
         return error.CastFailed;
     };
 
-    registry.add(spell_cast, component.SpellCast{ .spell_id = spell_def.spell_id, .school = spell_def.school, .caster = player });
+    registry.add(spell_cast, component.SpellCast{
+        .spell_id = spell_def.spell_id,
+        .school = spell_def.school,
+        .caster = player,
+        .effects = spell_def.effects,
+    });
     registry.add(spell_cast, component.SpellName{ .name = spell_def.name });
+    registry.add(spell_cast, component.PowerCost{ .cost = spell_def.power_cost });
     if (spell_def.cast_time_ms) |cast_time_ms| registry.add(spell_cast, component.CastTime{ .elapsed = cast_time_ms });
     if (spell_def.needs_target) {
         const target = map_ecs.findEntityByGuid(cast_request.packet.target_guid) orelse {
