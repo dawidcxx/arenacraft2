@@ -153,6 +153,7 @@ fn handleCastRequestImpl(
     registry.add(spell_cast, component.SpellCast{
         .spell_id = spell_def.spell_id,
         .school = spell_def.school,
+        .cast_count = cast_request.packet.cast_count,
         .caster = player,
         .effects = spell_def.effects,
     });

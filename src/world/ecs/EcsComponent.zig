@@ -40,4 +40,4 @@ pub const SpellReady = struct {};
 // @root
 pub const Player = struct { session: *Session };
 // @root
-pub const SpellCast = struct { spell_id: u32, school: domain.SpellDef.School, caster: Entity, effects: []const domain.SpellDef.Effect };
+pub const SpellCast = struct { spell_id: u32, school: domain.SpellDef.School, cast_count: u8, caster: Entity, effects: []const domain.SpellDef.Effect };
