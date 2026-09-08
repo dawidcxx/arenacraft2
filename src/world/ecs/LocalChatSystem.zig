@@ -20,7 +20,7 @@ pub fn run(map_ecs: *MapEcs, chat: EcsInput.LocalChat) !void {
         else => chat.packet.language,
     };
 
-    try map_ecs.broadcast(
+    map_ecs.broadcast(
         .{ sender, .{ .ignore_sender = false } },
         protocol.chat.MessageChatServer{
             .chat_type = chat.packet.chat_type,

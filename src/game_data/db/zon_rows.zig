@@ -8,8 +8,10 @@
 //! literals -> []const u8, and enum literal columns (`.faction = .horde`)
 //! -> an anonymous `enum` derived from the distinct literal names used.
 //! A field that is `null` or omitted in any row makes its whole column
-//! optional; a column whose concrete value kind varies across rows (int
-//! vs string vs enum literal, ...) is a compile error.
+//! optional; a column whose values are lists (`.{ .{...}, ... }`) becomes
+//! `[]const Elem` with the element struct inferred recursively; a column
+//! whose concrete value kind varies across rows (int vs string vs enum
+//! literal vs list, ...) is a compile error.
 
 const std = @import("std");
 
@@ -18,7 +20,9 @@ const std = @import("std");
 /// `null` in any row, which makes the whole column optional (`?i64` etc.).
 /// A column may not mix concrete value kinds (write `1.0` for float
 /// columns; enum literal columns must be enum literals in every row that
-/// has the column).
+/// has the column). A column whose values are lists of structs derives the
+/// element struct from the union of all elements across all rows, the same
+/// way, recursively.
 pub fn Row(comptime raw: anytype) type {
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
     if (rows.len == 0) return struct {};
@@ -52,6 +56,7 @@ fn containsName(comptime names: []const []const u8, comptime name: []const u8) b
 fn columnType(comptime raw: anytype, comptime col: []const u8) type {
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
     comptime var base: type = @TypeOf(null);
+    comptime var nested = false;
     comptime var nullable = false;
     inline for (rows) |rf| {
         const RowRaw = @TypeOf(@field(raw, rf.name));
@@ -59,17 +64,90 @@ fn columnType(comptime raw: anytype, comptime col: []const u8) type {
             const ft = rowFieldType(RowRaw, col);
             if (@typeInfo(ft) == .null) {
                 nullable = true;
-            } else if (base == @TypeOf(null)) {
-                base = ft;
-            } else if (columnKind(base) != columnKind(ft)) {
-                @compileError("zon column `" ++ col ++ "` mixes value kinds (row " ++ rf.name ++ ")");
+            } else if (isTupleType(ft)) {
+                if (base != @TypeOf(null)) {
+                    @compileError("zon column `" ++ col ++ "` mixes value kinds (row " ++ rf.name ++ ")");
+                }
+                nested = true;
+            } else {
+                if (nested) {
+                    @compileError("zon column `" ++ col ++ "` mixes value kinds (row " ++ rf.name ++ ")");
+                }
+                if (base == @TypeOf(null)) {
+                    base = ft;
+                } else if (columnKind(base) != columnKind(ft)) {
+                    @compileError("zon column `" ++ col ++ "` mixes value kinds (row " ++ rf.name ++ ")");
+                }
             }
         } else {
             nullable = true;
         }
     }
+    if (nested) {
+        const Elem = nestedRowType(raw, col);
+        return if (nullable) ?[]const Elem else []const Elem;
+    }
     const ty = if (isEnumLiteral(base)) enumLiteralType(raw, col) else scalarType(base);
     return if (nullable) ?ty else ty;
+}
+
+fn isTupleType(comptime T: type) bool {
+    return @typeInfo(T) == .@"struct" and @typeInfo(T).@"struct".is_tuple;
+}
+
+/// Derives the element row type of a nested list column (e.g. an `effects`
+/// list in every spell row) by flattening every element across all rows
+/// into one flat tuple and running `Row` on it. The recursion makes
+/// arbitrarily deep nesting work for free.
+fn nestedRowType(comptime raw: anytype, comptime col: []const u8) type {
+    const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
+
+    comptime var count: usize = 0;
+    inline for (rows) |rf| {
+        const RowRaw = @TypeOf(@field(raw, rf.name));
+        if (@hasField(RowRaw, col)) {
+            const ft = rowFieldType(RowRaw, col);
+            if (@typeInfo(ft) != .null) count += @typeInfo(ft).@"struct".fields.len;
+        }
+    }
+
+    comptime var names: [count][]const u8 = undefined;
+    comptime var types: [count]type = undefined;
+    comptime var idx: usize = 0;
+    inline for (rows) |rf| {
+        const RowRaw = @TypeOf(@field(raw, rf.name));
+        if (@hasField(RowRaw, col)) {
+            const ft = rowFieldType(RowRaw, col);
+            if (@typeInfo(ft) != .null) {
+                inline for (@typeInfo(ft).@"struct".fields) |ef| {
+                    names[idx] = ef.name;
+                    types[idx] = ef.type;
+                    idx += 1;
+                }
+            }
+        }
+    }
+
+    const Flat = std.meta.Tuple(&types);
+    const flat: Flat = blk: {
+        var out: Flat = undefined;
+        idx = 0;
+        inline for (rows) |rf| {
+            const RowRaw = @TypeOf(@field(raw, rf.name));
+            if (@hasField(RowRaw, col)) {
+                const ft = rowFieldType(RowRaw, col);
+                if (@typeInfo(ft) != .null) {
+                    const list = @field(@field(raw, rf.name), col);
+                    inline for (@typeInfo(ft).@"struct".fields) |ef| {
+                        @field(out, std.fmt.comptimePrint("{d}", .{idx})) = @field(list, ef.name);
+                        idx += 1;
+                    }
+                }
+            }
+        }
+        break :blk out;
+    };
+    return Row(flat);
 }
 
 /// Normalizes a concrete value type for cross-row kind comparison. String
@@ -142,7 +220,8 @@ fn enumLiteralType(comptime raw: anytype, comptime col: []const u8) type {
 }
 
 /// Materializes a pasted ZON table as a comptime-known `[]const Row`.
-/// Fields a row omits get `null` (such columns are optional by inference).
+/// Fields a row omits get `null` (such columns are optional by inference);
+/// nested list columns materialize recursively into `[]const Elem` slices.
 pub fn materialize(comptime RowT: type, comptime raw: anytype) []const RowT {
     const raw_fields = @typeInfo(@TypeOf(raw)).@"struct".fields;
     const arr = blk: {
@@ -151,7 +230,12 @@ pub fn materialize(comptime RowT: type, comptime raw: anytype) []const RowT {
             const r = @field(raw, f.name);
             inline for (std.meta.fields(RowT)) |rf| {
                 if (@hasField(@TypeOf(r), rf.name)) {
-                    @field(out[i], rf.name) = @field(r, rf.name);
+                    const val = @field(r, rf.name);
+                    if (comptime isTupleType(@TypeOf(val))) {
+                        @field(out[i], rf.name) = materialize(elemRowType(rf.type), val);
+                    } else {
+                        @field(out[i], rf.name) = val;
+                    }
                 } else {
                     @field(out[i], rf.name) = null;
                 }
@@ -160,6 +244,16 @@ pub fn materialize(comptime RowT: type, comptime raw: anytype) []const RowT {
         break :blk out;
     };
     return &arr;
+}
+
+/// Unwraps a nested column's `?[]const Elem` (either part may be absent)
+/// down to the element row type for recursive materialization.
+fn elemRowType(comptime FT: type) type {
+    return switch (@typeInfo(FT)) {
+        .optional => |o| elemRowType(o.child),
+        .pointer => |p| p.child,
+        else => @compileError("zon nested column must be a list of structs"),
+    };
 }
 
 const testing = std.testing;
@@ -241,6 +335,42 @@ test "enum columns support null and omitted fields" {
     try testing.expectEqualStrings("horde", @tagName(rows[0].faction.?));
     try testing.expect(rows[1].faction == null);
     try testing.expect(rows[2].faction == null);
+}
+
+test "nested list columns derive element structs" {
+    const raw = .{
+        .{ .id = 1, .effects = .{
+            .{ .kind = .damage, .min = 3, .max = 4 },
+            .{ .kind = .slow, .pct = 40 },
+        } },
+        .{ .id = 2, .effects = .{} },
+    };
+    const T = Row(raw);
+    const rows = materialize(T, raw);
+    const Elem = @typeInfo(@FieldType(T, "effects")).pointer.child;
+
+    try testing.expectEqual([]const Elem, @FieldType(T, "effects"));
+    try testing.expectEqual(2, rows[0].effects.len);
+    try testing.expectEqual(@as(i64, 3), rows[0].effects[0].min.?);
+    try testing.expectEqual(@as(i64, 4), rows[0].effects[0].max.?);
+    try testing.expectEqualStrings("damage", @tagName(rows[0].effects[0].kind));
+    try testing.expect(rows[0].effects[1].min == null);
+    try testing.expectEqual(@as(i64, 40), rows[0].effects[1].pct.?);
+    try testing.expectEqual(0, rows[1].effects.len);
+}
+
+test "omitted list columns are optional" {
+    const raw = .{
+        .{ .id = 1, .effects = .{ .{ .kind = .damage, .min = 1 } } },
+        .{ .id = 2 },
+    };
+    const T = Row(raw);
+    const rows = materialize(T, raw);
+    const Elem = @TypeOf(rows[0].effects.?[0]);
+
+    try testing.expectEqual(?[]const Elem, @FieldType(T, "effects"));
+    try testing.expectEqual(@as(i64, 1), rows[0].effects.?[0].min.?);
+    try testing.expect(rows[1].effects == null);
 }
 
 test "empty table yields empty row struct" {

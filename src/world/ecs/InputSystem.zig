@@ -42,7 +42,7 @@ fn handleLeave(
     const guid = registry.getConst(component.Guid, player_entity).value;
     registry.destroy(player_entity);
 
-    try map_ecs.addEvent(.{ .player_left = .{ .player = player_entity, .guid = guid } });
+    map_ecs.addEvent(.{ .player_left = .{ .player = player_entity, .guid = guid } });
 }
 
 fn handleJoin(map_ecs: *MapEcs, joining_player: *domain.Player) !void {
@@ -52,7 +52,7 @@ fn handleJoin(map_ecs: *MapEcs, joining_player: *domain.Player) !void {
         reg.destroy(existing);
     }
     const entity = createPlayerEntity(reg, joining_player);
-    try map_ecs.addEvent(.{ .player_joined = .{ .player = entity } });
+    map_ecs.addEvent(.{ .player_joined = .{ .player = entity } });
 }
 
 fn createPlayerEntity(reg: *ecs.Registry, player: *domain.Player) ecs.Entity {
@@ -107,7 +107,7 @@ fn handleMove(
     registry.get(component.Orientation, mover).*.value = info.orientation;
 
     switch (packet) {
-        inline else => |active| try map_ecs.broadcast(
+        inline else => |active| map_ecs.broadcast(
             .{ mover, .{ .ignore_sender = true } },
             active,
         ),
@@ -120,19 +120,24 @@ fn handleCastRequest(
     map_ecs: *MapEcs,
     cast_request: EcsInput.PlayerCastSpell,
 ) !void {
-    const spell_cast_entity = handleCastRequestImpl(map_ecs, cast_request) catch |e| switch (e) {
+    const spell_cast = handleCastRequestImpl(map_ecs, cast_request) catch |e| switch (e) {
         error.CastFailed => {
             log.debug("Failing spellcast (spell_id={})", .{cast_request.packet.spell_id});
             return;
         },
     };
-    try map_ecs.addEvent(.{ .spell_cast_fired = .{ .spell_cast = spell_cast_entity } });
+    map_ecs.addEvent(.{ .spell_cast_fired = .{ .spell_cast = spell_cast } });
 }
 
 fn handleCastRequestImpl(
     map_ecs: *MapEcs,
     cast_request: EcsInput.PlayerCastSpell,
 ) error{CastFailed}!ecs.Entity {
+    var registry = &map_ecs.registry;
+
+    const spell_cast = registry.create();
+    errdefer registry.destroy(spell_cast);
+
     const player = map_ecs.findPlayer(cast_request.account_id) orelse unreachable;
     const spell_def = game_data.spells.spells_db.findSpellById(cast_request.packet.spell_id) orelse {
         @branchHint(.unlikely);
@@ -141,32 +146,59 @@ fn handleCastRequestImpl(
             .result = .not_known,
             .cast_count = cast_request.packet.cast_count,
         };
-        map_ecs.sendTo(player, packet) catch {};
+        map_ecs.sendTo(player, packet);
         return error.CastFailed;
     };
 
-    var registry = &map_ecs.registry;
-
-    const spell_ent = registry.create();
-    errdefer registry.destroy(spell_ent);
-
-    registry.add(spell_ent, component.SpellCast{ .spell_id = spell_def.spell_id, .school = spell_def.school, .caster = player });
-    registry.add(spell_ent, component.SpellName{ .name = spell_def.name });
-
-    if (spell_def.cast_time_ms) |cast_time_ms| registry.add(spell_ent, component.CastTime{ .elapsed = cast_time_ms });
+    registry.add(spell_cast, component.SpellCast{ .spell_id = spell_def.spell_id, .school = spell_def.school, .caster = player });
+    registry.add(spell_cast, component.SpellName{ .name = spell_def.name });
+    if (spell_def.cast_time_ms) |cast_time_ms| registry.add(spell_cast, component.CastTime{ .elapsed = cast_time_ms });
     if (spell_def.needs_target) {
         const target = map_ecs.findEntityByGuid(cast_request.packet.target_guid) orelse {
             const packet = protocol.spell.CastFailedServer{
                 .spell_id = cast_request.packet.spell_id,
-                .result = .bad_implicit_targets,
+                .result = .not_known,
                 .cast_count = cast_request.packet.cast_count,
             };
-            map_ecs.sendTo(player, packet) catch {};
+            map_ecs.sendTo(player, packet);
             return error.CastFailed;
         };
+        registry.add(spell_cast, component.SpellTarget{ .target = target });
 
-        registry.add(spell_ent, component.SpellTarget{ .target = target });
+        const distance = distanceBetweenUnits(registry, player, target);
+
+        if (spell_def.range_yards) |max_range| {
+            if (distance > max_range) {
+                const packet = protocol.spell.CastFailedServer{
+                    .spell_id = cast_request.packet.spell_id,
+                    .result = .out_of_range,
+                    .cast_count = cast_request.packet.cast_count,
+                };
+                map_ecs.sendTo(player, packet);
+                return error.CastFailed;
+            }
+        }
+
+        if (spell_def.projectile_speed) |projectile_speed| {
+            registry.add(spell_cast, component.CastProjectileTime{
+                .elapsed = @intFromFloat(@as(f32, @floatFromInt(distance)) / @as(f32, @floatFromInt(projectile_speed))),
+            });
+        }
     }
 
-    return spell_ent;
+    return spell_cast;
+}
+
+// helpers
+fn distanceBetweenUnits(reg: *ecs.Registry, unit1: ecs.Entity, unit2: ecs.Entity) u32 {
+    const pos1 = reg.getConst(component.Position, unit1);
+    const pos2 = reg.getConst(component.Position, unit2);
+
+    const dx = pos1.x - pos2.x;
+    const dy = pos1.y - pos2.y;
+    const dz = pos1.z - pos2.z;
+
+    const distance = @sqrt(dx * dx + dy * dy + dz * dz);
+
+    return @intFromFloat(distance);
 }

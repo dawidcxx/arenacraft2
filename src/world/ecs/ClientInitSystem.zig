@@ -22,14 +22,14 @@ fn sendClientInit(map_ecs: *MapEcs, frame: MapEcs.Frame, entity: ecs.Entity) !vo
     const appearance = registry.getConst(component.Appearance, entity);
     const session = registry.getConst(component.Player, entity).session;
 
-    try map_ecs.sendTo(entity, protocol.world.BindPointUpdateServer{
+    map_ecs.sendTo(entity, protocol.world.BindPointUpdateServer{
         .x = position.x,
         .y = position.y,
         .z = position.z,
         .map_id = placeholder_map.valueOf(),
         .area_id = initial_zone_id,
     });
-    try map_ecs.sendTo(entity, protocol.world.TalentsInfoServer{});
+    map_ecs.sendTo(entity, protocol.world.TalentsInfoServer{});
 
     // Spellbook = explicit login grants + spells implied by skill grants
     // (skills.zon pairs, e.g. Language Common). Disjoint by comptime check.
@@ -44,25 +44,25 @@ fn sendClientInit(map_ecs: *MapEcs, frame: MapEcs.Frame, entity: ecs.Entity) !vo
         spell_len += 1;
     }
 
-    try map_ecs.sendTo(entity, protocol.world.InitialSpellsServer{ .spells = spell_ids[0..spell_len] });
+    map_ecs.sendTo(entity, protocol.world.InitialSpellsServer{ .spells = spell_ids[0..spell_len] });
     for (spell_ids[0..spell_len]) |spell_id| {
-        try map_ecs.sendTo(entity, protocol.world.LearnedSpellServer{ .spell_id = spell_id });
+        map_ecs.sendTo(entity, protocol.world.LearnedSpellServer{ .spell_id = spell_id });
     }
-    try map_ecs.sendTo(entity, protocol.world.ActionButtonsServer{});
-    try map_ecs.sendTo(entity, protocol.world.InitializeFactionsServer{});
-    try map_ecs.sendTo(entity, protocol.world.LoginSetTimeSpeedServer{
+    map_ecs.sendTo(entity, protocol.world.ActionButtonsServer{});
+    map_ecs.sendTo(entity, protocol.world.InitializeFactionsServer{});
+    map_ecs.sendTo(entity, protocol.world.LoginSetTimeSpeedServer{
         .packed_time = protocol.world.packGameTime(frame.clock.unixSeconds()),
         .speed = 1.0 / 60.0,
     });
-    try map_ecs.sendTo(entity, protocol.world.InitWorldStatesServer{
+    map_ecs.sendTo(entity, protocol.world.InitWorldStatesServer{
         .map_id = placeholder_map.valueOf(),
         .zone_id = initial_zone_id,
         .area_id = initial_zone_id,
     });
 
     const time_sync_counter = session.time_sync.begin(frame.clock.nowMs32());
-    try map_ecs.sendTo(entity, protocol.world.TimeSyncRequestServer{ .counter = time_sync_counter });
-    try map_ecs.sendTo(entity, protocol.world.MotdServer{
+    map_ecs.sendTo(entity, protocol.world.TimeSyncRequestServer{ .counter = time_sync_counter });
+    map_ecs.sendTo(entity, protocol.world.MotdServer{
         .lines = &.{"Welcome to Arenacraft!"},
     });
 }

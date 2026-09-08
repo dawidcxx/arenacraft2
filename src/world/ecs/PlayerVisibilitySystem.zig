@@ -28,14 +28,14 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
                 .player_create = playerEntityToPlayerCreate(&registry, joining_player, @truncate(frame.time_now)),
             },
         });
-        try map_ecs.broadcast(.{ joining_player, .{ .ignore_sender = true } }, introduce_player_packet);
+        map_ecs.broadcast(.{ joining_player, .{ .ignore_sender = true } }, introduce_player_packet);
     }
 
     const player_leave_events = map_ecs.events.get(EcsEventType.player_left);
     for (player_leave_events.items) |event| {
         const player = event.player_left.player;
         const despawn_packet = protocol.world.DestroyObjectServer{ .guid = event.player_left.guid };
-        try map_ecs.broadcast(.{ player, .{ .ignore_sender = true } }, despawn_packet);
+        map_ecs.broadcast(.{ player, .{ .ignore_sender = true } }, despawn_packet);
     }
 }
 
@@ -69,7 +69,7 @@ fn syncPlayerVisibilities(
         });
     }
 
-    try map_ecs.sendTo(player_to_sync, update_obj_packet_for_joining_player);
+    map_ecs.sendTo(player_to_sync, update_obj_packet_for_joining_player);
 }
 
 fn playerEntityToPlayerCreate(reg: *ecs.Registry, player: ecs.Entity, time_ms: u32) protocol.object.PlayerCreate {

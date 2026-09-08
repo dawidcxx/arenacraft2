@@ -78,9 +78,9 @@ pub const MapEcs = struct {
         self.input_buffer.append(self.gpa, input) catch @panic("MapEcs cannot queue input");
     }
 
-    pub fn addEvent(self: *MapEcs, event: EcsEvent) !void {
+    pub fn addEvent(self: *MapEcs, event: EcsEvent) void {
         const tag = std.meta.activeTag(event);
-        try self.events.getPtr(tag).append(self.gpa, event);
+        self.events.getPtr(tag).append(self.gpa, event) catch unreachable;
     }
 
     /// Linear scan for the player entity of an account. Maps are small;
@@ -106,8 +106,9 @@ pub const MapEcs = struct {
         return null;
     }
 
-    pub fn sendTo(self: *Self, player_entity: ecs.Entity, packet_unmarshalled: anytype) !void {
-        const packet_bytes: Arc([]const u8) = try .of(packet_unmarshalled.marshal(ArcRuntime.allocator()));
+    pub fn sendTo(self: *Self, player_entity: ecs.Entity, packet_unmarshalled: anytype) void {
+        const marshalled = packet_unmarshalled.marshal(ArcRuntime.allocator()) catch unreachable;
+        const packet_bytes = Arc([]const u8).of(marshalled) catch unreachable;
         defer packet_bytes.release();
 
         if (builtin.mode == .Debug) {
@@ -129,11 +130,12 @@ pub const MapEcs = struct {
     }
 
     const BroadcastProps = struct { ignore_sender: bool };
-    pub fn broadcast(self: *Self, broadcast_request: struct { ecs.Entity, BroadcastProps }, packet_unmarshalled: anytype) !void {
+    pub fn broadcast(self: *Self, broadcast_request: struct { ecs.Entity, BroadcastProps }, packet_unmarshalled: anytype) void {
         const player_entity = broadcast_request[0];
         const props = broadcast_request[1];
 
-        const packet_bytes: Arc([]const u8) = try .of(packet_unmarshalled.marshal(ArcRuntime.allocator()));
+        const marshalled = packet_unmarshalled.marshal(ArcRuntime.allocator()) catch unreachable;
+        const packet_bytes = Arc([]const u8).of(marshalled) catch unreachable;
         defer packet_bytes.release();
 
         if (builtin.mode == .Debug) {
@@ -149,14 +151,14 @@ pub const MapEcs = struct {
 
         const opcode = @TypeOf(packet_unmarshalled).opcode;
 
-        try self.output_buffer.append(self.gpa, .{
+        self.output_buffer.append(self.gpa, .{
             .broadcast = .{
                 .opcode = @intFromEnum(opcode),
                 .data = packet_bytes.retain(),
                 .sender = player_entity,
                 .ignore_sender = props.ignore_sender,
             },
-        });
+        }) catch unreachable;
     }
 };
 

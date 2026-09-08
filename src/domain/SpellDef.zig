@@ -9,23 +9,19 @@ pub const SpellDef = struct {
         arcane = 6,
     };
 
+    pub const Effect = union(enum) {
+        damage: struct { min: u32, max: u32 },
+        movement_slow: struct { duration: u24, pct: u8 },
+        direct_melee_damage: struct { min: u32, max: u32 },
+    };
+
     spell_id: u32,
     name: []const u8,
-
     school: School,
 
-    cast_time_ms: ?u32,
-
-    needs_target: bool,
-
-    /// Max cast/attack distance in yards.
-    range_yards: u32,
-    min_damage: u32,
-    max_damage: u32,
-    /// Movement speed reduction on hit, percent (0 = no aura effect).
-    movement_slow_pct: u32,
-    /// How long the aura entity lives (0 = no aura).
-    aura_duration_ms: u32,
-    /// Auto attack spells are driven by CMSG_ATTACKSWING, not the cast pipeline.
-    is_melee: bool,
+    cast_time_ms: ?u32, //       null = instant
+    projectile_speed: ?u32, //   null = no travel phase, connects on cast
+    needs_target: bool, //      default = false
+    range_yards: ?u32, //        null = infinite range
+    effects: []const Effect,
 };
