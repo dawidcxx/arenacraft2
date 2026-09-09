@@ -4,7 +4,7 @@ const ecs = @import("ecs");
 const component = @import("EcsComponent.zig");
 const MapEcs = @import("MapEcs.zig").MapEcs;
 
-pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) void {
+pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     const reg = &map_ecs.registry;
 
     for (map_ecs.output_buffer.items) |item| {
