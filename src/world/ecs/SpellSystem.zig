@@ -30,7 +30,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     var casted_spells_it = casted_spells_view.entityIterator();
     while (casted_spells_it.next()) |cast| {
         var cast_time = registry.get(component.CastTime, cast);
-        cast_time.elapsed -%= frame.dt;
+        cast_time.elapsed -|= frame.dt;
         if (cast_time.elapsed == 0) {
             registry.remove(component.CastTime, cast);
             map_ecs.queueEvent(.{ .spell_cast_fired = .{ .spell_cast = cast } });
@@ -42,7 +42,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     var spells_in_flight_it = spells_in_flight_view.entityIterator();
     while (spells_in_flight_it.next()) |cast| {
         var cast_time = registry.get(component.CastProjectileTime, cast);
-        cast_time.elapsed -%= frame.dt;
+        cast_time.elapsed -|= frame.dt;
         if (cast_time.elapsed == 0) {
             registry.remove(component.CastProjectileTime, cast);
             map_ecs.queueEvent(.{ .spell_cast_fired = .{ .spell_cast = cast } });
@@ -120,6 +120,7 @@ fn executeTargetedSpell(map_ecs: *MapEcs, frame: MapEcs.Frame, spell_cast_ent: e
                 });
                 registry.add(aura, component.AuraMovementSlow{ .pct = ms.pct });
                 registry.add(aura, component.AuraDuration{ .elapsed = ms.duration });
+                registry.add(aura, component.AuraMaxDuration{ .max_duration = ms.duration });
                 map_ecs.addEvent(.{ .aura_applied = .{ .aura = aura } });
             },
         }
