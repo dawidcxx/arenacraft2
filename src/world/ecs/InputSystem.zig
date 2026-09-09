@@ -82,6 +82,7 @@ fn createPlayerEntity(reg: *ecs.Registry, player: *domain.Player) ecs.Entity {
     reg.add(entity, component.VisibleItems{ .entries = character.visible_items, .guids = character.item_guids });
     reg.add(entity, component.Level{ .value = character.level });
     reg.add(entity, component.Stats{ .derived = character.derived });
+    reg.add(entity, component.MoveSpeed{ .run = component.BASE_RUN_SPEED });
 
     return entity;
 }

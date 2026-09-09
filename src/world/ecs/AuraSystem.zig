@@ -14,9 +14,6 @@ const MapEcs = @import("MapEcs.zig").MapEcs;
 const log = std.log.scoped(.aura_system);
 
 pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
-    const alloc = frame.arena_allocator;
-    _ = alloc;
-
     const registry = &map_ecs.registry;
     var aura_slots = &map_ecs.state.aura_slots;
 
@@ -26,6 +23,8 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
 
         // 1. Book keep the aura
         const aura_slot = aura_slots.addAuraForTarget(aura.owner, aura_ent) orelse continue;
+
+        registry.add(aura_ent, c.AuraNeedsApply{});
 
         // 2. Notify client
         const elapsed = registry.getConst(c.AuraDuration, aura_ent).elapsed;
@@ -40,6 +39,31 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
             .max_duration_ms = max_duration,
         };
         map_ecs.broadcast(.{ aura.owner, .{ .ignore_sender = false } }, packet);
+    }
+
+    var slows_to_apply_view = registry.view(.{ c.AuraNeedsApply, c.AuraMovementSlow, c.Aura }, .{});
+    var slows_to_apply_it = slows_to_apply_view.entityIterator();
+    while (slows_to_apply_it.next()) |slow_aura_ent| {
+        defer registry.remove(c.AuraNeedsApply, slow_aura_ent);
+        const aura = registry.getConst(c.Aura, slow_aura_ent);
+        const slow = registry.getConst(c.AuraMovementSlow, slow_aura_ent);
+        var owner_movement_speed = registry.get(c.MoveSpeed, aura.owner);
+        owner_movement_speed.run = c.BASE_RUN_SPEED * slow.pct;
+        // TODO: publish
+    }
+
+    var aura_duration_view = registry.view(.{c.AuraDuration}, .{});
+    var aura_duration_it = aura_duration_view.entityIterator();
+    while (aura_duration_it.next()) |aura_duration_ent| {
+        var duration = registry.get(c.AuraDuration, aura_duration_ent);
+        duration.elapsed -%= frame.dt;
+        if (duration.elapsed == 0) {
+            const aura = registry.getConst(c.Aura, aura_duration_ent);
+            const aura_owner_guid = registry.getConst(c.Guid, aura.owner).value;
+            const slot = aura_slots.removeAuraForTarget(aura.owner, aura_duration_ent) orelse unreachable;
+            map_ecs.broadcast(.{ aura.owner, .{ .ignore_sender = false } }, proto.spell.AuraUpdateServer.remove(aura_owner_guid, slot));
+            registry.destroy(aura_duration_ent);
+        }
     }
 }
 
@@ -79,11 +103,11 @@ pub const AuraSlots = struct {
         return @truncate(gop.value_ptr.items.len - 1);
     }
 
-    pub fn removeAuraForTarget(self: *Self, target: ecs.Entity, aura: ecs.Entity) void {
-        var aura_list = self.storage.get(target) orelse return;
-        const index_of = std.mem.findScalarPos(ecs.Entity, aura_list.items, 0, aura) orelse return;
-        const removed_aura = aura_list.swapRemove(index_of);
-        _ = removed_aura;
+    pub fn removeAuraForTarget(self: *Self, target: ecs.Entity, aura: ecs.Entity) ?u8 {
+        const aura_list = self.storage.getPtr(target) orelse return null;
+        const index_of = std.mem.findScalarPos(ecs.Entity, aura_list.items, 0, aura) orelse return null;
+        _ = aura_list.swapRemove(index_of);
+        return @truncate(index_of);
     }
 
     pub fn items(self: *const Self, target: ecs.Entity) []const ecs.Entity {

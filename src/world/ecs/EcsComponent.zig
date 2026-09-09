@@ -30,6 +30,12 @@ pub const VisibleItems = struct { entries: [19]u32, guids: [19]u64 = .{0} ** 19 
 pub const Level = struct { value: u8 };
 pub const Stats = struct { derived: domain.character_stats.DerivedStats };
 
+/// Base run speed in yd/s (docs/auras.md).
+pub const BASE_RUN_SPEED: f32 = 7.0;
+/// Current effective run speed (yd/s); rewritten by AuraSystem as slow
+/// auras apply and expire, mirrored to clients via ForceRunSpeedChange.
+pub const MoveSpeed = struct { run: f32 };
+
 // Spell related components
 pub const SpellName = struct { name: []const u8 };
 pub const CastTime = struct { elapsed: u32 };
@@ -42,6 +48,7 @@ pub const SpellReady = struct {};
 pub const AuraDuration = struct { elapsed: u32 };
 pub const AuraMaxDuration = struct { max_duration: u32 };
 pub const AuraMovementSlow = struct { pct: u8 };
+pub const AuraNeedsApply = struct {};
 
 // @root
 pub const Player = struct { session: *Session };
