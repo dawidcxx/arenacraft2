@@ -7,6 +7,7 @@ const std = @import("std");
 const ecs = @import("ecs");
 const domain = @import("domain");
 const proto = @import("protocol");
+const stdx = @import("stdx");
 const c = @import("./EcsComponent.zig");
 
 const MapEcs = @import("MapEcs.zig").MapEcs;
@@ -66,21 +67,14 @@ pub fn runPost(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     }
 }
 
-// Book keeping helper state
-// Needed for consistent slot ordering
-// which is required on protocol level
+
 pub const AuraSlots = struct {
-    // { [ key: Unit ] : Aura[] }
-    storage: std.AutoArrayHashMapUnmanaged(ecs.Entity, std.ArrayListUnmanaged(ecs.Entity)),
+    // { [ key: Unit ] : SlotMap }
+    storage: std.AutoArrayHashMapUnmanaged(ecs.Entity, stdx.SlotMap(ecs.Entity)),
     gpa: std.mem.Allocator,
 
     const Self = @This();
-
-    // TODO: how we should actually operate
-    // - migrate to a linked list approach
-    // - keep a track of occupied slot
-    // - periodically perform compaction
-    // - on compaction: use batch update packet
+    const max_slots_per_target = 52;
 
     pub fn init(gpa: std.mem.Allocator) Self {
         return .{
@@ -91,32 +85,64 @@ pub const AuraSlots = struct {
 
     pub fn deinit(self: *Self) void {
         var storage_it = self.storage.iterator();
-        while (storage_it.next()) |storage_entry| storage_entry.value_ptr.deinit(self.gpa);
+        while (storage_it.next()) |storage_entry| storage_entry.value_ptr.deinit();
         self.storage.deinit(self.gpa);
     }
 
     pub fn addAuraForTarget(self: *Self, target: ecs.Entity, aura: ecs.Entity) ?u8 {
         var gop = self.storage.getOrPut(self.gpa, target) catch unreachable;
-        if (!gop.found_existing) {
-            gop.value_ptr.* = std.ArrayListUnmanaged(ecs.Entity).initCapacity(self.gpa, 52) catch unreachable;
-        }
-        gop.value_ptr.appendBounded(aura) catch {
+        if (!gop.found_existing) gop.value_ptr.* = stdx.SlotMap(ecs.Entity).init(self.gpa);
+        if (gop.value_ptr.items().len >= max_slots_per_target) {
             @branchHint(.unlikely);
             log.info("Target reached aura limit count, dropping aura", .{});
             return null;
-        };
-        return @truncate(gop.value_ptr.items.len - 1);
+        }
+        return gop.value_ptr.put(aura);
     }
 
     pub fn removeAuraForTarget(self: *Self, target: ecs.Entity, aura: ecs.Entity) ?u8 {
-        const aura_list = self.storage.getPtr(target) orelse return null;
-        const index_of = std.mem.findScalarPos(ecs.Entity, aura_list.items, 0, aura) orelse return null;
-        _ = aura_list.swapRemove(index_of);
-        return @truncate(index_of);
+        const slot_map = self.storage.getPtr(target) orelse return null;
+        return slot_map.remove(aura);
     }
 
-    pub fn items(self: *const Self, target: ecs.Entity) []const ecs.Entity {
-        const aura_list = self.storage.get(target) orelse return &.{};
-        return aura_list.items;
+    pub fn slotOf(self: *const Self, target: ecs.Entity, aura: ecs.Entity) ?u8 {
+        const slot_map = self.storage.getPtr(target) orelse return null;
+        return slot_map.slotOf(aura);
+    }
+
+    pub fn needsCompaction(self: *const Self, target: ecs.Entity) bool {
+        const slot_map = self.storage.getPtr(target) orelse return false;
+        const len = slot_map.items().len;
+        return len > 0 and @as(usize, slot_map.tombstoneCount()) * 2 >= len;
+    }
+
+    pub fn compactForTarget(self: *Self, target: ecs.Entity) void {
+        const slot_map = self.storage.getPtr(target) orelse return;
+        slot_map.compact();
+    }
+
+    /// Raw window with holes; index = slot id, null = tombstone.
+    pub fn items(self: *const Self, target: ecs.Entity) []const ?ecs.Entity {
+        const slot_map = self.storage.getPtr(target) orelse return &.{};
+        return slot_map.items();
     }
 };
+
+test AuraSlots {
+    const t = @import("std").testing;
+
+    var slots = AuraSlots.init(t.allocator);
+    defer slots.deinit();
+
+    const target: ecs.Entity = .{ .index = 1, .version = 0 };
+    const a1: ecs.Entity = .{ .index = 11, .version = 0 };
+    const a2: ecs.Entity = .{ .index = 12, .version = 0 };
+
+    try t.expectEqual(@as(u8, 0), slots.addAuraForTarget(target, a1).?);
+    try t.expectEqual(@as(u8, 1), slots.addAuraForTarget(target, a2).?);
+    try t.expectEqual(@as(u8, 0), slots.removeAuraForTarget(target, a1).?);
+
+    // a2 keeps its slot; a new aura appends past the tombstone.
+    try t.expectEqual(@as(u8, 1), slots.slotOf(target, a2).?);
+    try t.expectEqual(@as(u8, 2), slots.addAuraForTarget(target, a1).?);
+}

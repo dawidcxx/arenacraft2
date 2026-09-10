@@ -12,6 +12,7 @@ pub const EnumMeta = @import("EnumMeta.zig").EnumMeta;
 pub const filter = @import("Comptime.zig").filter;
 pub const groupBy = @import("Comptime.zig").groupBy;
 pub const SortedTable = @import("SortedTable.zig").SortedTable;
+pub const SlotMap = @import("SlotMap.zig").SlotMap;
 
 pub const name = "stdx";
 
@@ -145,4 +146,5 @@ test {
     _ = @import("./Comptime.zig");
     _ = @import("./EnumMeta.zig");
     _ = @import("./SortedTable.zig");
+    _ = @import("./SlotMap.zig");
 }
