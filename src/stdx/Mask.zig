@@ -1,5 +1,5 @@
 //! Restriction bitmask over an id enum: one bit per variant, a zero
-//! wildcard, and a `playable` union of every variant. For data rows that
+//! wildcard, and a `specified` union of every variant. For data rows that
 //! spec which ids a row applies to (login spell grants per class/race, ...).
 
 const std = @import("std");
@@ -25,7 +25,7 @@ pub fn Mask(comptime Id: type) type {
         pub const all: Self = .{ .value = 0 };
 
         /// Every id of `Id`, ORed together.
-        pub const playable: Self = blk: {
+        pub const specified: Self = blk: {
             var union_mask: u32 = 0;
             for (@typeInfo(Id).@"enum".fields) |field| {
                 union_mask |= of(@enumFromInt(field.value)).value;
@@ -39,11 +39,11 @@ pub fn Mask(comptime Id: type) type {
         }
 
         /// i64 data column -> mask. Negative values and bits outside
-        /// `playable` are data bugs; asserts fire as compile errors when
+        /// `specified` are data bugs; asserts fire as compile errors when
         /// the conversion happens at comptime.
         pub fn fromJson(json_value: i64) Self {
             const value: u32 = @intCast(json_value);
-            std.debug.assert(value & ~playable.value == 0);
+            std.debug.assert(value & ~specified.value == 0);
             return .{ .value = value };
         }
 
@@ -57,6 +57,66 @@ pub fn Mask(comptime Id: type) type {
         pub fn has(self: Self, id: Id) bool {
             return self.value & of(id).value != 0;
         }
+
+        /// Bitwise AND: true when `self` shares at least one bit with
+        /// `other` — a single mask or a slice of masks ORed together.
+        /// The wildcard carries no bits and never matches, like `has`.
+        pub fn matchAnd(self: Self, other: anytype) bool {
+            return self.value & flatten(other).value != 0;
+        }
+
+        /// Bitwise OR: `self` with every bit of `other` set — a single
+        /// mask or a slice of masks.
+        pub fn matchOr(self: Self, other: anytype) Self {
+            return .{ .value = self.value | flatten(other).value };
+        }
+
+        /// Bitwise AND-NOT: `self` minus every bit of `other` — a single
+        /// mask or a slice of masks.
+        pub fn without(self: Self, other: anytype) Self {
+            return .{ .value = self.value & ~flatten(other).value };
+        }
+
+        /// Collapses a mask, a slice of masks, or a tuple literal of masks
+        /// (`&.{ a, b }`) into one mask so the set ops above stay plain bit
+        /// algebra. Comptime type dispatch only; the fold is a plain loop.
+        fn flatten(other: anytype) Self {
+            const T = @TypeOf(other);
+            const expected = "expected " ++ @typeName(Self) ++ " or a slice of it, got " ++ @typeName(T);
+            switch (@typeInfo(T)) {
+                .pointer => |ptr| switch (ptr.size) {
+                    .slice => {
+                        comptime if (ptr.child != Self) @compileError(expected);
+                        var acc: u32 = 0;
+                        for (other) |mask| acc |= mask.value;
+                        return .{ .value = acc };
+                    },
+                    .one => switch (@typeInfo(ptr.child)) {
+                        .array => |arr| {
+                            comptime if (arr.child != Self) @compileError(expected);
+                            var acc: u32 = 0;
+                            for (other) |mask| acc |= mask.value;
+                            return .{ .value = acc };
+                        },
+                        .@"struct" => |st| {
+                            comptime if (!st.is_tuple) @compileError(expected);
+                            inline for (st.fields) |field| {
+                                comptime if (field.type != Self) @compileError(expected);
+                            }
+                            var acc: u32 = 0;
+                            inline for (other) |mask| acc |= mask.value;
+                            return .{ .value = acc };
+                        },
+                        else => @compileError(expected),
+                    },
+                    else => @compileError(expected),
+                },
+                else => {
+                    comptime if (T != Self) @compileError(expected);
+                    return other;
+                },
+            }
+        }
     };
 }
 
@@ -69,7 +129,7 @@ test "mask bits follow id values, not declaration order" {
     try t.expectEqual(@as(u32, 1), FruitMask.of(.apple).value);
     try t.expectEqual(@as(u32, 2), FruitMask.of(.banana).value);
     try t.expectEqual(@as(u32, 8), FruitMask.of(.cherry).value);
-    try t.expectEqual(@as(u32, 0xB), FruitMask.playable.value);
+    try t.expectEqual(@as(u32, 0xB), FruitMask.specified.value);
 }
 
 test "mask covers honors the wildcard" {
@@ -104,4 +164,22 @@ test "fromJson keeps known bits" {
 
     try t.expectEqual(@as(u32, 1), FruitMask.fromJson(1).value);
     try t.expectEqual(@as(u32, 0), FruitMask.fromJson(0).value);
+}
+
+test "set ops accept masks and slices" {
+    const t = std.testing;
+
+    const Fruit = enum(u8) { apple = 1, banana = 2, cherry = 4 };
+    const FruitMask = Mask(Fruit);
+
+    const apple_banana = FruitMask.of(.apple).matchOr(FruitMask.of(.banana));
+    try t.expectEqual(@as(u32, 3), apple_banana.value);
+    try t.expectEqual(@as(u32, 3), FruitMask.of(.apple).matchOr(&.{ FruitMask.of(.apple), FruitMask.of(.banana) }).value);
+
+    try t.expect(apple_banana.matchAnd(FruitMask.of(.banana)));
+    try t.expect(!apple_banana.matchAnd(FruitMask.of(.cherry)));
+    try t.expect(apple_banana.matchAnd(&.{ FruitMask.of(.cherry), FruitMask.of(.apple) }));
+
+    const apple_only = apple_banana.without(&.{ FruitMask.of(.banana), FruitMask.of(.cherry) });
+    try t.expectEqual(@as(u32, 1), apple_only.value);
 }

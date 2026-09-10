@@ -67,6 +67,75 @@ pub fn runPost(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     }
 }
 
+pub const AuraType = enum(u8) {
+    movement_slow = 1,
+
+    pub const Mask = stdx.Mask(@This());
+};
+
+/// Per-target dirty flags for aura effect reapplication: systems mark a
+/// unit with the affected AuraType bits when its auras change, then consume
+/// the flags per aura entity before reapplying effects.
+pub const AuraDirtyTracker = struct {
+    const Self = @This();
+
+    /// target -> dirty effect bits; an absent entry means nothing is dirty.
+    dirty: std.AutoHashMapUnmanaged(ecs.Entity, AuraType.Mask) = .empty,
+    gpa: std.mem.Allocator,
+
+    /// `.all` rides on value 0 in stdx.Mask (wildcard). Stored masks are
+    /// always concrete bits, so expand it to every variant at the boundary.
+    fn expandAll(aura_type: AuraType.Mask) AuraType.Mask {
+        return if (aura_type.value == 0) AuraType.Mask.specified else aura_type;
+    }
+
+    pub fn init(gpa: std.mem.Allocator) Self {
+        return .{ .gpa = gpa };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.dirty.deinit(self.gpa);
+    }
+
+    pub fn markDirty(self: *Self, target: ecs.Entity, aura_type: AuraType.Mask) void {
+        const gop = self.dirty.getOrPut(self.gpa, target) catch unreachable;
+        if (!gop.found_existing) gop.value_ptr.* = .{ .value = 0 };
+        gop.value_ptr.* = gop.value_ptr.matchOr(expandAll(aura_type));
+    }
+
+    pub fn isDirty(self: *Self, aura_mask: AuraType.Mask, registry: *ecs.Registry, aura_entity: ecs.Entity) bool {
+        const aura = registry.getConst(c.Aura, aura_entity);
+        const mask = self.dirty.get(aura.owner) orelse return false;
+        return mask.matchAnd(expandAll(aura_mask));
+    }
+
+    pub fn clearDirty(self: *Self, target: ecs.Entity, aura_type: AuraType.Mask) void {
+        const mask = self.dirty.getPtr(target) orelse return;
+        mask.* = mask.without(expandAll(aura_type));
+        if (mask.value == 0) _ = self.dirty.remove(target);
+    }
+};
+
+test AuraDirtyTracker {
+    const t = @import("std").testing;
+    var registry = @import("ecs").Registry.init(t.allocator);
+    defer registry.deinit();
+
+    const some_player = registry.create();
+
+    const aura_with_slow = registry.create();
+    registry.add(aura_with_slow, c.Aura{ .caster = some_player, .owner = some_player, .spell_id = 123 });
+    registry.add(aura_with_slow, c.AuraMovementSlow{ .pct = 5 });
+
+    var instance = AuraDirtyTracker.init(t.allocator);
+    defer instance.deinit();
+
+    instance.markDirty(some_player, .all);
+    try t.expect(instance.isDirty(.of(.movement_slow), &registry, aura_with_slow));
+
+    instance.clearDirty(some_player, .all);
+    try t.expect(!instance.isDirty(.of(.movement_slow), &registry, aura_with_slow));
+}
 
 pub const AuraSlots = struct {
     // { [ key: Unit ] : SlotMap }

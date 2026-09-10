@@ -35,10 +35,10 @@ test "race bits follow the CREATURE_TYPE_PERM id layout" {
     try t.expectEqual(@as(u32, 0x400), Race.Mask.of(.draenei).value);
 }
 
-test "playable unions every playable race" {
+test "specified unions every playable race" {
     const t = std.testing;
 
     // Human..Troll (0xFF) + BloodElf (0x200) + Draenei (0x400); no Goblin
     // (0x100) in 3.3.5a.
-    try t.expectEqual(@as(u32, 0x0000_06FF), Race.Mask.playable.value);
+    try t.expectEqual(@as(u32, 0x0000_06FF), Race.Mask.specified.value);
 }
