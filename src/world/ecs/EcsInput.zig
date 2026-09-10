@@ -1,5 +1,7 @@
 const domain = @import("domain");
 const ecs = @import("ecs");
+const stdx = @import("stdx");
+
 const Arc = @import("stdx").Arc;
 
 const protocol = @import("protocol");
@@ -33,18 +35,12 @@ pub const EcsEventType = enum {
     player_joined,
     player_left,
     spell_cast_fired,
-    aura_apply_request,
-    aura_applied,
-    aura_destroyed,
 };
 
 pub const EcsEvent = union(EcsEventType) {
     player_joined: struct { player: ecs.Entity },
     player_left: struct { player: ecs.Entity, guid: domain.ObjectGuid },
     spell_cast_fired: struct { spell_cast: ecs.Entity },
-    aura_apply_request: struct { ecs.Entity },
-    aura_applied: struct { ecs.Entity },
-    aura_destroyed: struct { ecs.Entity },
 };
 
 pub const Output = union(enum) {

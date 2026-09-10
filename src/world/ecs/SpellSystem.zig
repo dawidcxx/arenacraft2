@@ -110,16 +110,8 @@ fn executeTargetedSpell(map_ecs: *MapEcs, frame: MapEcs.Frame, spell_cast_ent: e
                 };
                 map_ecs.broadcast(.{ caster, .{ .ignore_sender = false } }, damage_packet);
             },
-            .movement_slow => |ms| {
-                const aura = registry.create();
-                registry.add(aura, component.Aura{
-                    .caster = caster,
-                    .owner = target,
-                    .spell_id = spell_cast.spell_id,
-                });
-                registry.add(aura, component.AuraMovementSlow{ .pct = ms.pct });
-                registry.add(aura, component.AuraDuration{ .elapsed = ms.duration });
-                map_ecs.addEvent(.{ .aura_apply_request = .{aura} });
+            .movement_slow => {
+                // TODO: spawn a aura here once the aura system is reintroduced.
             },
         }
     }
