@@ -50,6 +50,12 @@ pub const MapInstance = struct {
         };
     }
 
+    pub fn pushCancelCastAsync(self: *Self, io: std.Io, request: MapInstanceInbox.PlayerCancelCast) void {
+        self.inbox.putOne(io, .{ .player_cancel_cast = request }) catch |e| {
+            log.info("Dropping .pushCancelCastAsync, reason='{}'", .{e});
+        };
+    }
+
     pub fn sendChatAsync(self: *Self, io: std.Io, request: MapInstanceInbox.Chat) void {
         self.inbox.putOne(io, .{ .chat = request }) catch |e| {
             log.info("Dropping .sendChatAsync, reason='{}'", .{e});
@@ -126,6 +132,9 @@ pub const MapInstance = struct {
                         },
                         .player_cast_spell => |cast_request| {
                             self.map_ecs.addInput(.{ .player_spell_cast = .{ .account_id = cast_request.account_id, .packet = cast_request.packet } });
+                        },
+                        .player_cancel_cast => |cancel_request| {
+                            self.map_ecs.addInput(.{ .player_cancel_cast = .{ .account_id = cancel_request.account_id, .spell_id = cancel_request.spell_id } });
                         },
                     }
 

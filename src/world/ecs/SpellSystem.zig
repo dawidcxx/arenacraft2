@@ -12,6 +12,8 @@ const MapEcs = @import("MapEcs.zig").MapEcs;
 
 const log = std.log.scoped(.spell_system);
 
+const HealResult = struct { applied: u32 = 0, overheal: u32 = 0 };
+
 pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     var registry = &map_ecs.registry;
     const alloc = frame.arena_allocator;
@@ -68,6 +70,36 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     for (executed_spells_list.items) |spell_cast_entity| registry.destroy(spell_cast_entity);
 }
 
+/// Applies `amount` to the target's health pool, clamped to max. Broadcasts
+/// a UNIT_FIELD_HEALTH values update so clients see the bar move. Returns
+/// the wire tuple: applied gain + overheal (the clamped-away remainder).
+fn applyHeal(map_ecs: *MapEcs, frame: MapEcs.Frame, target: ecs.Entity, amount: u32) HealResult {
+    const registry = &map_ecs.registry;
+
+    const health = registry.tryGet(component.Health, target) orelse {
+        log.warn("heal effect on entity without Health component", .{});
+        return .{};
+    };
+
+    const applied = @min(amount, health.max - health.current);
+    health.current += applied;
+
+    if (applied > 0) {
+        var fields = protocol.object.Fields{};
+        fields.set(protocol.object.UnitField.health, health.current);
+        var update_packet = protocol.object.UpdateObject.init(frame.arena_allocator) catch unreachable;
+        defer update_packet.deinit(frame.arena_allocator);
+        update_packet.add(frame.arena_allocator, .{ .values = .{
+            .guid = registry.getConst(component.Guid, target).value,
+            .fields = fields,
+        } }) catch unreachable;
+
+        map_ecs.broadcast(.{ target, .{ .ignore_sender = false } }, update_packet);
+    }
+
+    return .{ .applied = applied, .overheal = amount - applied };
+}
+
 fn executeTargetedSpell(map_ecs: *MapEcs, frame: MapEcs.Frame, spell_cast_ent: ecs.Entity) void {
     var registry = &map_ecs.registry;
 
@@ -111,11 +143,16 @@ fn executeTargetedSpell(map_ecs: *MapEcs, frame: MapEcs.Frame, spell_cast_ent: e
                 map_ecs.broadcast(.{ caster, .{ .ignore_sender = false } }, damage_packet);
             },
             .heal => |h| {
+                const result = applyHeal(map_ecs, frame, target, h.max);
+
+                // heal = actual gain, overheal = clamped-away remainder;
+                // the client renders the overheal text from that pair.
                 const heal_packet = protocol.spell.SpellHealLogServer{
                     .victim_guid = target_guid.value,
                     .caster_guid = caster_guid.value,
                     .spell_id = spell_cast.spell_id,
-                    .heal = h.max,
+                    .heal = result.applied,
+                    .overheal = result.overheal,
                 };
                 map_ecs.broadcast(.{ caster, .{ .ignore_sender = false } }, heal_packet);
             },

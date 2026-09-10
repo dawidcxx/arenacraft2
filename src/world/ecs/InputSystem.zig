@@ -28,6 +28,7 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
             .player_leave => |leave| try handleLeave(map_ecs, leave.account_id),
             .local_chat => |chat| try LocalChatSystem.run(map_ecs, chat), // TODO: this is bad
             .player_spell_cast => |spell_cast_request| try handleCastRequest(map_ecs, spell_cast_request),
+            .player_cancel_cast => |cancel_request| try handleCancelCast(map_ecs, cancel_request),
         }
     }
 }
@@ -82,6 +83,7 @@ fn createPlayerEntity(reg: *ecs.Registry, player: *domain.Player) ecs.Entity {
     reg.add(entity, component.VisibleItems{ .entries = character.visible_items, .guids = character.item_guids });
     reg.add(entity, component.Level{ .value = character.level });
     reg.add(entity, component.Stats{ .derived = character.derived });
+    reg.add(entity, component.Health{ .current = character.derived.max_health, .max = character.derived.max_health });
     reg.add(entity, component.MoveSpeed{ .run = component.BASE_RUN_SPEED });
 
     return entity;
@@ -128,6 +130,34 @@ fn handleCastRequest(
         },
     };
     map_ecs.addEvent(.{ .spell_cast_fired = .{ .spell_cast = spell_cast } });
+}
+
+fn handleCancelCast(
+    map_ecs: *MapEcs,
+    cancel_request: EcsInput.PlayerCancelCast,
+) !void {
+    var registry = &map_ecs.registry;
+
+    const player = map_ecs.findPlayer(cancel_request.account_id) orelse return;
+
+    // Abort the in-flight cast (one per caster) matching the spell id.
+    var casting_view = registry.view(.{ component.SpellCast, component.CastTime }, .{});
+    var casting_it = casting_view.entityIterator();
+    while (casting_it.next()) |spell_cast_ent| {
+        const spell_cast = registry.getConst(component.SpellCast, spell_cast_ent);
+        if (spell_cast.caster != player) continue;
+        if (spell_cast.spell_id != cancel_request.spell_id) continue;
+
+        registry.destroy(spell_cast_ent);
+
+        map_ecs.broadcast(.{ player, .{ .ignore_sender = true } }, protocol.spell.SpellFailureServer{
+            .caster_guid = registry.getConst(component.Guid, player).value,
+            .cast_count = spell_cast.cast_count,
+            .spell_id = spell_cast.spell_id,
+            .result = .interrupted,
+        });
+        return;
+    }
 }
 
 fn handleCastRequestImpl(
@@ -193,6 +223,21 @@ fn handleCastRequestImpl(
             });
         }
     }
+
+    // SMSG_SPELL_START drives the client-side cast bar (delay_ms > 0) and
+    // target visual anticipation for instants as well.
+    const target_guid: ?domain.ObjectGuid = if (registry.tryGetConst(component.SpellTarget, spell_cast)) |t|
+        registry.getConst(component.Guid, t.target).value
+    else
+        null;
+
+    map_ecs.broadcast(.{ player, .{ .ignore_sender = false } }, protocol.spell.SpellStartServer{
+        .caster_guid = registry.getConst(component.Guid, player).value,
+        .cast_count = cast_request.packet.cast_count,
+        .spell_id = spell_def.spell_id,
+        .delay_ms = @intCast(spell_def.cast_time_ms orelse 0),
+        .target_guid = target_guid,
+    });
 
     return spell_cast;
 }

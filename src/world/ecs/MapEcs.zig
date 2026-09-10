@@ -31,6 +31,9 @@ pub const MapEcs = struct {
     input_buffer: std.ArrayList(Input),
     output_buffer: std.ArrayList(Output),
     events: std.EnumArray(EcsEventType, std.ArrayList(EcsEvent)),
+    /// Events queued mid-frame land here and are drained into `events` at
+    /// the start of the next frame.
+    deferred_events: std.ArrayList(EcsEvent),
 
     pub fn init(gpa: std.mem.Allocator) !MapEcs {
         var buffered_inputs: std.ArrayList(Input) = try .initCapacity(gpa, 1024);
@@ -38,6 +41,9 @@ pub const MapEcs = struct {
 
         var buffered_outputs: std.ArrayList(Output) = try .initCapacity(gpa, 1024);
         errdefer buffered_outputs.deinit(gpa);
+
+        var deferred_events: std.ArrayList(EcsEvent) = try .initCapacity(gpa, 64);
+        errdefer deferred_events.deinit(gpa);
 
         const events = std.EnumArray(EcsEventType, std.ArrayList(EcsEvent)).init(.{
             .player_joined = .empty,
@@ -50,6 +56,7 @@ pub const MapEcs = struct {
             .registry = ecs.Registry.init(gpa),
             .input_buffer = buffered_inputs,
             .events = events,
+            .deferred_events = deferred_events,
             .output_buffer = buffered_outputs,
         };
     }
@@ -59,10 +66,15 @@ pub const MapEcs = struct {
         self.input_buffer.deinit(self.gpa);
         var it = self.events.iterator();
         while (it.next()) |event_list| event_list.value.deinit(self.gpa);
+        self.deferred_events.deinit(self.gpa);
         self.output_buffer.deinit(self.gpa);
     }
 
     pub fn run(self: *MapEcs, frame: Frame) !void {
+        // Drain events queued during the previous frame before systems run.
+        for (self.deferred_events.items) |event| self.addEvent(event);
+        self.deferred_events.clearRetainingCapacity();
+
         try @import("./InputSystem.zig").run(self, frame);
         try @import("./SpellSystem.zig").run(self, frame);
         try @import("./PlayerVisibilitySystem.zig").run(self, frame);
@@ -84,11 +96,11 @@ pub const MapEcs = struct {
         self.events.getPtr(tag).append(self.gpa, event) catch unreachable;
     }
 
-    // TODO: make it queue up a event for the follow up frame
+    /// Queues an event for the next frame. Events appended mid-frame must
+    /// not be consumed by the same frame's systems; the frame start drain
+    /// makes that ordering explicit.
     pub fn queueEvent(self: *MapEcs, event: EcsEvent) void {
-        _ = self; // autofix
-        _ = event; // autofix
-        @panic("TODO");
+        self.deferred_events.append(self.gpa, event) catch unreachable;
     }
 
     /// Linear scan for the player entity of an account. Maps are small;

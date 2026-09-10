@@ -14,6 +14,10 @@ pub const PlayerCastSpell = struct {
     account_id: u64,
     packet: protocol.spell.CastSpellClient,
 };
+pub const PlayerCancelCast = struct {
+    account_id: u64,
+    spell_id: u32,
+};
 
 pub const LocalChat = struct { account_id: u64, packet: protocol.chat.MessageChatClient };
 
@@ -26,6 +30,7 @@ pub const Input = union(enum) {
     },
     player_move: PlayerMove,
     player_spell_cast: PlayerCastSpell,
+    player_cancel_cast: PlayerCancelCast,
     local_chat: LocalChat,
 };
 

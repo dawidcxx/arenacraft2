@@ -29,6 +29,9 @@ pub const Appearance = struct {
 pub const VisibleItems = struct { entries: [19]u32, guids: [19]u64 = .{0} ** 19 };
 pub const Level = struct { value: u8 };
 pub const Stats = struct { derived: domain.character_stats.DerivedStats };
+/// Current/max health pool; mutated by heal/damage effects and synced to
+/// clients via UNIT_FIELD_HEALTH values updates.
+pub const Health = struct { current: u32, max: u32 };
 
 /// Base run speed in yd/s.
 pub const BASE_RUN_SPEED: f32 = 7.0;

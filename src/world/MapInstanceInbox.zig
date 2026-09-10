@@ -11,6 +11,10 @@ pub const PlayerSpellCast = struct {
     account_id: u64,
     packet: protocol.spell.CastSpellClient,
 };
+pub const PlayerCancelCast = struct {
+    account_id: u64,
+    spell_id: u32,
+};
 
 pub const Chat = struct {
     account_id: u64,
@@ -28,5 +32,6 @@ pub const InboxMsg = union(enum) {
     },
     player_move: PlayerMove,
     player_cast_spell: PlayerSpellCast,
+    player_cancel_cast: PlayerCancelCast,
     chat: Chat,
 };
