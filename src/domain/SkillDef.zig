@@ -10,11 +10,3 @@ pub const SkillDef = struct {
     /// The spell the client needs to know for this skill to work.
     spell_id: u32,
 };
-
-/// A granted skill row for the player's skill pane
-/// (PLAYER_FIELD_SKILL_LINEID); value/max are the pane's current/max pair.
-pub const SkillGrant = struct {
-    skill_id: u16,
-    value: u16,
-    max: u16,
-};

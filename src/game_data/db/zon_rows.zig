@@ -24,6 +24,7 @@ const std = @import("std");
 /// element struct from the union of all elements across all rows, the same
 /// way, recursively.
 pub fn Row(comptime raw: anytype) type {
+    @setEvalBranchQuota(1_000_000);
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
     if (rows.len == 0) return struct {};
 
@@ -54,6 +55,7 @@ fn containsName(comptime names: []const []const u8, comptime name: []const u8) b
 }
 
 fn columnType(comptime raw: anytype, comptime col: []const u8) type {
+    @setEvalBranchQuota(1_000_000);
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
     comptime var base: type = @TypeOf(null);
     comptime var nested = false;
@@ -100,6 +102,7 @@ fn isTupleType(comptime T: type) bool {
 /// into one flat tuple and running `Row` on it. The recursion makes
 /// arbitrarily deep nesting work for free.
 fn nestedRowType(comptime raw: anytype, comptime col: []const u8) type {
+    @setEvalBranchQuota(1_000_000);
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
 
     comptime var count: usize = 0;
@@ -203,6 +206,7 @@ fn scalarType(comptime T: type) type {
 /// Synthesizes an anonymous enum from the distinct enum literal names used
 /// in a column across all rows.
 fn enumLiteralType(comptime raw: anytype, comptime col: []const u8) type {
+    @setEvalBranchQuota(1_000_000);
     const rows = @typeInfo(@TypeOf(raw)).@"struct".fields;
     comptime var names: [rows.len][]const u8 = undefined;
     comptime var count: usize = 0;
@@ -223,6 +227,7 @@ fn enumLiteralType(comptime raw: anytype, comptime col: []const u8) type {
 /// Fields a row omits get `null` (such columns are optional by inference);
 /// nested list columns materialize recursively into `[]const Elem` slices.
 pub fn materialize(comptime RowT: type, comptime raw: anytype) []const RowT {
+    @setEvalBranchQuota(1_000_000);
     const raw_fields = @typeInfo(@TypeOf(raw)).@"struct".fields;
     const arr = blk: {
         var out: [raw_fields.len]RowT = undefined;

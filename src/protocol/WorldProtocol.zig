@@ -1388,11 +1388,11 @@ pub const PlayerCreateServer = struct {
         const character = self.character;
 
         // Skill pane rows ride only on the creating client's packet; other
-        // clients don't need the player's skill book. The grant list is a
-        // local so the slice outlives pkt.add.
-        var skill_grants = game_data.initial_skills.GrantList{};
+        // clients don't need the player's skill book.
+        var skill_rows: []const game_data.initial_skills.InitialSkill = &.{};
+        defer if (skill_rows.len > 0) allocator.free(skill_rows);
         if (self.self_update) {
-            skill_grants = game_data.initial_skills.grantsFor(character.class_id, character.race_id);
+            skill_rows = try game_data.initial_skills.initial_skills_db.getAllFor(allocator, character.class_id, character.race_id);
         }
 
         var pkt = try update_object.UpdateObject.init(allocator);
@@ -1422,7 +1422,7 @@ pub const PlayerCreateServer = struct {
             .faction_template = game_data.races.factionTemplate(character.race_id),
             .display_id = game_data.races.displayId(character.race_id, character.gender),
             .visible_items = self.visible_items,
-            .skill_rows = skill_grants.slice(),
+            .skill_rows = skill_rows,
             .time_ms = self.time_ms,
             .self_update = self.self_update,
         } } });

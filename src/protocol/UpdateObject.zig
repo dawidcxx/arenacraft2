@@ -611,7 +611,7 @@ pub const PlayerCreate = struct {
     item_guids: [19]u64 = .{0} ** 19,
     /// Skill pane rows for the creating client (PLAYER_FIELD_SKILL_LINEID);
     /// each grant writes id/value/max, bonus stays 0.
-    skill_rows: []const domain.SkillGrant = &.{},
+    skill_rows: []const @import("game_data").initial_skills.InitialSkill = &.{},
     x: f32,
     y: f32,
     z: f32,
@@ -684,7 +684,7 @@ pub const PlayerCreate = struct {
             fields.set(UnitField.base_health, self.base_health);
             for (self.skill_rows, 0..) |row, slot| {
                 fields.set(PlayerField.skillBook(@intCast(slot), .id_step), packedU16(row.skill_id, 0));
-                fields.set(PlayerField.skillBook(@intCast(slot), .value_max), packedU16(row.value, row.max));
+                fields.set(PlayerField.skillBook(@intCast(slot), .value_max), packedU16(row.max, row.max));
                 fields.set(PlayerField.skillBook(@intCast(slot), .bonus), 0);
             }
             // Paper doll slot occupancy; the bag slots (19..22) stay zero.
@@ -1037,7 +1037,7 @@ test "player create_object2 block has the expected wire shape" {
         .armor = 360,
         .faction_template = 1,
         .display_id = 1,
-        .skill_rows = &.{.{ .skill_id = 98, .value = 300, .max = 300 }},
+        .skill_rows = &.{.{ .skill_id = 98, .class_mask = .{ .value = 0 }, .race_mask = .{ .value = 0 }, .max = 300 }},
         .item_guids = item_guids,
         .visible_items = .{ 0, 0, 0, 0, 6834, 0, 6835, 6836, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
         .x = 1,

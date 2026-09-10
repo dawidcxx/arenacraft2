@@ -18,7 +18,7 @@ pub const initial_spells_db = struct {
     const Self = @This();
 
     /// Grant rows whose race_mask covers `race` (wildcards included).
-    /// Class scoping is left to the caller; see grantsFor. Spell ids
+    /// Class scoping is left to the caller; see getAllFor. Spell ids
     /// ascending.
     pub fn getAllForRace(race: Race) []const InitialSpell {
         return rows_by_race[@intFromEnum(race)];
@@ -63,6 +63,12 @@ pub fn mapRow(row: db.initial_spells.Row) InitialSpell {
         .class_mask = Class.Mask.fromJson(row.class_mask),
         .race_mask = Race.Mask.fromJson(row.race_mask),
     };
+}
+
+/// True when `spell_id` is granted to anyone by initial_spells.zon; used
+/// by initial_skills to reject double grants at comptime.
+pub fn grantsSpellId(spell_id: u32) bool {
+    return rows.find(spell_id) != null;
 }
 
 /// One group per Race/Class variant; each slice keeps row order. Mask

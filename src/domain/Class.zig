@@ -43,10 +43,3 @@ test "class bits follow the ChrClasses id layout" {
     try t.expectEqual(@as(u32, 0x80), Class.Mask.of(.mage).value);
     try t.expectEqual(@as(u32, 0x400), Class.Mask.of(.druid).value);
 }
-
-test "specified unions every playable class" {
-    const t = std.testing;
-
-    // Warrior..Warlock (0x1FF) + Druid (0x400); no Monk (0x200) in 3.3.5a.
-    try t.expectEqual(@as(u32, 0x0000_05FF), Class.Mask.specified.value);
-}

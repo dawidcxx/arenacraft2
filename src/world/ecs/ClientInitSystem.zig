@@ -42,20 +42,8 @@ fn sendClientInit(map_ecs: *MapEcs, frame: MapEcs.Frame, player_entity: ecs.Enti
 
     // Spellbook = explicit login grants + spells implied by skill grants
     // (skills.zon pairs, e.g. Language Common). Disjoint by comptime check.
-    // var spell_ids: [game_data.initial_spells.max_granted + game_data.initial_skills.max_granted]u32 = undefined;
-    // var spell_len: usize = 0;
-    // for (game_data.initial_spells.grantsFor(appearance.class_id, appearance.race_id).slice()) |spell_id| {
-    //     spell_ids[spell_len] = spell_id;
-    //     spell_len += 1;
-    // }
-    // for (game_data.initial_skills.spellIdsFor(appearance.class_id, appearance.race_id).slice()) |spell_id| {
-    //     spell_ids[spell_len] = spell_id;
-    //     spell_len += 1;
-    // }
-    //
-    // try map_ecs.sendTo(entity, protocol.world.InitialSpellsServer{ .spells = spell_ids[0..spell_len] });
-    // for (spell_ids[0..spell_len]) |spell_id| {
-    //     try map_ecs.sendTo(entity, protocol.world.LearnedSpellServer{ .spell_id = spell_id });
+    // for (try game_data.initial_skills.initial_skills_db.spellIdsFor(alloc, appearance.class_id, appearance.race_id)) |spell_id| {
+    //     map_ecs.sendTo(player_entity, protocol.world.LearnedSpellServer{ .spell_id = spell_id });
     // }
 
     map_ecs.sendTo(player_entity, protocol.world.ActionButtonsServer{});

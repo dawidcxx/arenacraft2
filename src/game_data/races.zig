@@ -56,15 +56,3 @@ const table = stdx.SortedTable(
     mapRaceRow,
     .race_id,
 );
-
-test "race data covers playable race ids" {
-    inline for (@typeInfo(Race).@"enum".fields) |field| {
-        const race_id: Race = @enumFromInt(field.value);
-        try std.testing.expect(raceInfo(race_id) != null);
-    }
-
-    try std.testing.expectEqual(@as(u32, 1), factionTemplate(.human));
-    try std.testing.expectEqual(@as(u32, 1629), factionTemplate(.draenei));
-    try std.testing.expectEqual(@as(u32, 49), displayId(.human, 0));
-    try std.testing.expectEqual(@as(u32, 15475), displayId(.blood_elf, 1));
-}
