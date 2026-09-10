@@ -51,9 +51,14 @@ pub fn handleCancelCast(
     player: *domain.Player,
     payload: []const u8,
 ) !void {
-    _ = io;
-    _ = payload;
-    log.debug("Cancel cast captured (account_id={}); handling pending", .{player.account_id});
+    const packet = try proto.spell.CancelCastClient.unmarshal(payload);
+    const map_reference: ?*world.MapInstance = @ptrCast(@alignCast(player.active_map_reference));
+
+    if (map_reference) |map| {
+        map.pushCancelCastAsync(io, .{ .account_id = player.account_id, .spell_id = packet.spell_id });
+    } else {
+        log.warn("Player(account_id='{}') cancelled a cast but is not in map?", .{player.account_id});
+    }
 }
 
 /// CMSG_SET_SHEATHED (0x1E0): the client drew/undrew its weapons.
