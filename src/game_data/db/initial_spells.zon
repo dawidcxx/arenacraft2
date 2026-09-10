@@ -5,6 +5,12 @@
         .race_mask = 0,
     },
     .{
+        .spell_id = 2061,
+        // Priest (class id 5 → bit 0x10).
+        .class_mask = 16,
+        .race_mask = 0,
+    },
+    .{
         .spell_id = 6603,
         .class_mask = 0,
         .race_mask = 0,

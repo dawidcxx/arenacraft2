@@ -14,6 +14,18 @@
         },
     },
     .{
+        .spell_id = 2061,
+        .name = "Flash Heal",
+        .school = .holy,
+        .cast_time_ms = 1500,
+        .needs_target = true,
+        .range_yards = 40,
+        .power_cost = 134,
+        .effects = .{
+            .{ .type = .heal, .min = 193, .max = 237 },
+        },
+    },
+    .{
         .spell_id = 6603,
         .name = "Auto Attack",
         .school = .normal,

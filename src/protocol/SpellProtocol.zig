@@ -390,6 +390,35 @@ pub const SpellNonMeleeDamageServer = struct {
     }
 };
 
+/// SMSG_SPELLHEALLOG (0x151): heal on a friendly victim, mirroring the
+/// reference core's field order (victim, caster, spell, heal, overheal,
+/// crit flag, trailing unknown byte).
+pub const SpellHealLogServer = struct {
+    pub const opcode: world_protocol.Opcode = .smsg_spellheallog;
+
+    victim_guid: ObjectGuid,
+    caster_guid: ObjectGuid,
+    spell_id: u32,
+    heal: u32,
+    overheal: u32 = 0,
+    critical: bool = false,
+
+    pub fn marshal(self: SpellHealLogServer, gpa: std.mem.Allocator) ![]u8 {
+        var out: std.ArrayList(u8) = .empty;
+        errdefer out.deinit(gpa);
+
+        try appendPackedGuid(&out, gpa, self.victim_guid);
+        try appendPackedGuid(&out, gpa, self.caster_guid);
+        try appendU32(&out, gpa, self.spell_id);
+        try appendU32(&out, gpa, self.heal);
+        try appendU32(&out, gpa, self.overheal);
+        try out.append(gpa, @intFromBool(self.critical));
+        try out.append(gpa, 0); // unknown trailing byte
+
+        return out.toOwnedSlice(gpa);
+    }
+};
+
 /// SMSG_AURA_UPDATE (0x496): one aura slot on one unit. `spell_id == 0`
 /// clears the slot; otherwise the spell, caster and remaining duration are
 /// sent.

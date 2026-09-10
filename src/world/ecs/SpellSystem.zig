@@ -110,16 +110,21 @@ fn executeTargetedSpell(map_ecs: *MapEcs, frame: MapEcs.Frame, spell_cast_ent: e
                 };
                 map_ecs.broadcast(.{ caster, .{ .ignore_sender = false } }, damage_packet);
             },
-            .movement_slow => |ms| {
-                const aura = registry.create();
-                registry.add(aura, component.Aura{
-                    .caster = caster,
-                    .owner = target,
+            .heal => |h| {
+                const heal_packet = protocol.spell.SpellHealLogServer{
+                    .victim_guid = target_guid.value,
+                    .caster_guid = caster_guid.value,
                     .spell_id = spell_cast.spell_id,
-                });
-                registry.add(aura, component.AuraMovementSlow{ .pct = ms.pct });
-                registry.add(aura, component.AuraDuration{ .elapsed = ms.duration });
-                map_ecs.addEvent(.{ .aura_apply_request = .{aura} });
+                    .heal = h.max,
+                };
+                map_ecs.broadcast(.{ caster, .{ .ignore_sender = false } }, heal_packet);
+            },
+            .movement_slow => |ms| {
+                // TODO: aura spawn attempt (slow effect on target) — aura
+                // ECS was torn down for a redesign; rebuild here once the
+                // new lifecycle exists. `ms.pct`/`ms.duration` carry the
+                // effect payload.
+                _ = ms;
             },
         }
     }

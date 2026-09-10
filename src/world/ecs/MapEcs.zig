@@ -31,7 +31,6 @@ pub const MapEcs = struct {
     input_buffer: std.ArrayList(Input),
     output_buffer: std.ArrayList(Output),
     events: std.EnumArray(EcsEventType, std.ArrayList(EcsEvent)),
-    state: MapEcsState,
 
     pub fn init(gpa: std.mem.Allocator) !MapEcs {
         var buffered_inputs: std.ArrayList(Input) = try .initCapacity(gpa, 1024);
@@ -44,9 +43,6 @@ pub const MapEcs = struct {
             .player_joined = .empty,
             .player_left = .empty,
             .spell_cast_fired = .empty,
-            .aura_apply_request = .empty,
-            .aura_applied = .empty,
-            .aura_destroyed = .empty,
         });
 
         return .{
@@ -55,7 +51,6 @@ pub const MapEcs = struct {
             .input_buffer = buffered_inputs,
             .events = events,
             .output_buffer = buffered_outputs,
-            .state = .init(gpa),
         };
     }
 
@@ -65,15 +60,11 @@ pub const MapEcs = struct {
         var it = self.events.iterator();
         while (it.next()) |event_list| event_list.value.deinit(self.gpa);
         self.output_buffer.deinit(self.gpa);
-        self.state.deinit();
     }
 
     pub fn run(self: *MapEcs, frame: Frame) !void {
         try @import("./InputSystem.zig").run(self, frame);
         try @import("./SpellSystem.zig").run(self, frame);
-        try @import("./AuraLifecycleSystem.zig").runPre(self, frame);
-        try @import("./AuraEffectSystem.zig").run(self, frame);
-        try @import("./AuraLifecycleSystem.zig").runPost(self, frame);
         try @import("./PlayerVisibilitySystem.zig").run(self, frame);
         try @import("./ClientInitSystem.zig").run(self, frame);
         try @import("./OutboundPacketSystem.zig").run(self, frame);
@@ -176,22 +167,6 @@ pub const MapEcs = struct {
                 .ignore_sender = props.ignore_sender,
             },
         }) catch unreachable;
-    }
-};
-
-// Other systems can host persisent state
-// for book keeping.
-pub const MapEcsState = struct {
-    aura_slots: @import("./AuraLifecycleSystem.zig").AuraSlots,
-
-    pub fn init(gpa: std.mem.Allocator) MapEcsState {
-        return .{
-            .aura_slots = .init(gpa),
-        };
-    }
-
-    pub fn deinit(self: *MapEcsState) void {
-        self.aura_slots.deinit();
     }
 };
 

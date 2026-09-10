@@ -39,6 +39,10 @@ fn mapEffects(comptime row: db.spells.Row) []const SpellDef.Effect {
                     .min = req(e.min, u32, "damage.min"),
                     .max = req(e.max, u32, "damage.max"),
                 } },
+                .heal => .{ .heal = .{
+                    .min = req(e.min, u32, "heal.min"),
+                    .max = req(e.max, u32, "heal.max"),
+                } },
                 .movement_slow => .{ .movement_slow = .{
                     .duration = req(e.duration, u24, "movement_slow.duration"),
                     .pct = req(e.pct, u8, "movement_slow.pct"),
@@ -92,6 +96,14 @@ test "spells_db finds entries as expected" {
     try t.expect(language_common.cast_time_ms == null);
     try t.expect(language_common.range_yards == null);
     try t.expectEqual(0, language_common.effects.len);
+
+    const flash_heal = spells_db.findSpellById(2061) orelse return error.MissingSpell;
+    try t.expectEqual(domain.SpellDef.School.holy, flash_heal.school);
+    try t.expectEqual(@as(u32, 1500), flash_heal.cast_time_ms.?);
+    try t.expect(flash_heal.needs_target);
+    try t.expectEqual(@as(u32, 40), flash_heal.range_yards.?);
+    try t.expectEqual(@as(u32, 193), flash_heal.effects[0].heal.min);
+    try t.expectEqual(@as(u32, 237), flash_heal.effects[0].heal.max);
 
     try t.expect(spells_db.findSpellById(0) == null);
 }

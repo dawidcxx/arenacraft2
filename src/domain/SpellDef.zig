@@ -14,6 +14,7 @@ pub const SpellDef = struct {
 
     pub const Effect = union(enum) {
         damage: struct { min: u32, max: u32 },
+        heal: struct { min: u32, max: u32 },
         movement_slow: MovementSlow,
         direct_melee_damage: struct { min: u32, max: u32 },
     };
