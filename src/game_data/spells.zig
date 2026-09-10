@@ -39,13 +39,39 @@ fn mapEffects(comptime row: db.spells.Row) []const SpellDef.Effect {
                     .min = req(e.min, u32, "damage.min"),
                     .max = req(e.max, u32, "damage.max"),
                 } },
-                .movement_slow => .{ .movement_slow = .{
-                    .duration = req(e.duration, u24, "movement_slow.duration"),
-                    .pct = req(e.pct, u8, "movement_slow.pct"),
-                } },
                 .direct_melee_damage => .{ .direct_melee_damage = .{
                     .min = req(e.min, u32, "direct_melee_damage.min"),
                     .max = req(e.max, u32, "direct_melee_damage.max"),
+                } },
+                .apply_aura => .{ .apply_aura = .{
+                    .duration_ms = req(e.duration, u24, "apply_aura.duration"),
+                    .effects = mapAuraEffects(e.effects orelse @compileError("apply_aura effect requires an `effects` list (empty for a marker aura)")),
+                } },
+            };
+        }
+        break :blk built;
+    };
+    return &out;
+}
+
+fn mapAuraEffects(comptime effects: anytype) []const SpellDef.AuraEffect {
+    const out = blk: {
+        var built: [effects.len]SpellDef.AuraEffect = undefined;
+        inline for (effects, 0..) |e, i| {
+            built[i] = switch (e.type) {
+                .movement_speed_mod => .{ .movement_speed_mod = .{
+                    .pct = req(e.pct, i16, "movement_speed_mod.pct"),
+                } },
+                .periodic_damage => .{ .periodic_damage = .{
+                    .interval_ms = req(e.interval_ms, u24, "periodic_damage.interval_ms"),
+                    .min = req(e.min, u32, "periodic_damage.min"),
+                    .max = req(e.max, u32, "periodic_damage.max"),
+                } },
+                .max_health_mod => .{ .max_health_mod = .{
+                    .amount = req(e.amount, i32, "max_health_mod.amount"),
+                } },
+                .immune => .{ .immune = .{
+                    .school_mask = req(e.school_mask, u8, "immune.school_mask"),
                 } },
             };
         }
@@ -78,8 +104,17 @@ test "spells_db finds entries as expected" {
     try t.expectEqual(2, frostbolt.effects.len);
     try t.expectEqual(@as(u32, 18), frostbolt.effects[0].damage.min);
     try t.expectEqual(@as(u32, 20), frostbolt.effects[0].damage.max);
-    try t.expectEqual(@as(u24, 5000), frostbolt.effects[1].movement_slow.duration);
-    try t.expectEqual(@as(u8, 40), frostbolt.effects[1].movement_slow.pct);
+    try t.expectEqual(@as(u24, 5000), frostbolt.effects[1].apply_aura.duration_ms);
+    try t.expectEqual(@as(i16, -40), frostbolt.effects[1].apply_aura.effects[0].movement_speed_mod.pct);
+
+    const agony = spells_db.findSpellById(980) orelse return error.MissingSpell;
+    try t.expectEqual(@as(u24, 3000), agony.effects[0].apply_aura.effects[0].periodic_damage.interval_ms);
+
+    const ice_block = spells_db.findSpellById(45438) orelse return error.MissingSpell;
+    try t.expectEqual(@as(u8, 127), ice_block.effects[0].apply_aura.effects[0].immune.school_mask);
+
+    const fortitude = spells_db.findSpellById(21562) orelse return error.MissingSpell;
+    try t.expectEqual(@as(i32, 50), fortitude.effects[0].apply_aura.effects[0].max_health_mod.amount);
 
     const auto_attack = spells_db.findSpellById(6603) orelse return error.MissingSpell;
     try t.expect(auto_attack.cast_time_ms == null);

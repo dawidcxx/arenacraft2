@@ -43,7 +43,26 @@ pub const PowerCost = struct { cost: u32 };
 pub const SpellTarget = struct { target: Entity };
 pub const SpellReady = struct {};
 
+// Aura related components
+/// Expiry clock of a timed aura; AuraSystem saturates `remaining` to zero
+/// and retires the aura. Absent on permanent auras.
+pub const AuraDuration = struct { remaining: u32, max: u32 };
+/// Tick state of an aura's periodic effect (one periodic effect per aura).
+pub const AuraPeriodic = struct { interval_ms: u32, timer: u32 };
+/// Present exactly while a unit's folded stats are stale; DerivedStatSystem
+/// consumes it and removes the component. Presence is the dirty bit.
+pub const StatsDirty = struct { mask: domain.SpellDef.Category.Mask };
+
 // @root
 pub const Player = struct { session: *Session };
 // @root
 pub const SpellCast = struct { spell_id: u32, school: domain.SpellDef.School, cast_count: u8, caster: Entity, effects: []const domain.SpellDef.Effect };
+// @root
+pub const Aura = struct {
+    owner: Entity,
+    caster: Entity,
+    spell_id: u32,
+    school: domain.SpellDef.School,
+    /// Static effect list shared with the granting spell; never copied.
+    effects: []const domain.SpellDef.AuraEffect,
+};

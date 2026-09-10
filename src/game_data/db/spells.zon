@@ -10,7 +10,48 @@
         .power_cost = 15,
         .effects = .{
             .{ .type = .damage, .min = 18, .max = 20 },
-            .{ .type = .movement_slow, .duration = 5000, .pct = 40 },
+            .{ .type = .apply_aura, .duration = 5000, .effects = .{
+                .{ .type = .movement_speed_mod, .pct = -40 },
+            } },
+        },
+    },
+    .{
+        .spell_id = 980,
+        .name = "Agony",
+        .school = .shadow,
+        .needs_target = true,
+        .range_yards = 30,
+        .power_cost = 10,
+        .effects = .{
+            .{ .type = .apply_aura, .duration = 9000, .effects = .{
+                .{ .type = .periodic_damage, .interval_ms = 3000, .min = 5, .max = 7 },
+            } },
+        },
+    },
+    .{
+        .spell_id = 45438,
+        .name = "Ice Block",
+        .school = .frost,
+        .needs_target = true,
+        .range_yards = 30,
+        .power_cost = 0,
+        .effects = .{
+            .{ .type = .apply_aura, .duration = 4000, .effects = .{
+                .{ .type = .immune, .school_mask = 127 },
+            } },
+        },
+    },
+    .{
+        .spell_id = 21562,
+        .name = "Fortitude",
+        .school = .holy,
+        .needs_target = true,
+        .range_yards = 30,
+        .power_cost = 10,
+        .effects = .{
+            .{ .type = .apply_aura, .duration = 30000, .effects = .{
+                .{ .type = .max_health_mod, .amount = 50 },
+            } },
         },
     },
     .{

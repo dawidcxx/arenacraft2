@@ -65,6 +65,12 @@ pub fn mapRow(row: db.initial_spells.Row) InitialSpell {
     };
 }
 
+/// True when `spell_id` is granted to anyone by initial_spells.zon; used
+/// by initial_skills to reject double grants at comptime.
+pub fn grantsSpellId(spell_id: u32) bool {
+    return rows.find(spell_id) != null;
+}
+
 /// One group per Race/Class variant; each slice keeps row order. Mask
 /// scoping is many-to-many: one row lands in every group it matches.
 const rows_by_race = stdx.groupBy(Race, rows.entries, selectByRace);

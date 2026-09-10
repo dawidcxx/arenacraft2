@@ -44,6 +44,7 @@ pub const MapEcs = struct {
             .player_joined = .empty,
             .player_left = .empty,
             .spell_cast_fired = .empty,
+            .aura_apply_request = .empty,
         });
 
         return .{
@@ -68,6 +69,8 @@ pub const MapEcs = struct {
     pub fn run(self: *MapEcs, frame: Frame) !void {
         try @import("./InputSystem.zig").run(self, frame);
         try @import("./SpellSystem.zig").run(self, frame);
+        try @import("./AuraSystem.zig").run(self, frame);
+        try @import("./DerivedStatSystem.zig").run(self, frame);
         try @import("./PlayerVisibilitySystem.zig").run(self, frame);
         try @import("./ClientInitSystem.zig").run(self, frame);
         try @import("./OutboundPacketSystem.zig").run(self, frame);
@@ -176,13 +179,14 @@ pub const MapEcs = struct {
 // Other systems can host persisent state
 // for book keeping.
 pub const MapEcsState = struct {
+    aura_slots: @import("./AuraSlots.zig").AuraSlots,
+
     pub fn init(gpa: std.mem.Allocator) MapEcsState {
-        _ = gpa;
-        return .{};
+        return .{ .aura_slots = .init(gpa) };
     }
 
     pub fn deinit(self: *MapEcsState) void {
-        _ = self;
+        self.aura_slots.deinit();
     }
 };
 
