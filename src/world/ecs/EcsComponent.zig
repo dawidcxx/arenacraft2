@@ -48,7 +48,8 @@ pub const SpellReady = struct {};
 pub const AuraDuration = struct { elapsed: u32 };
 pub const AuraMaxDuration = struct { max_duration: u32 };
 pub const AuraMovementSlow = struct { pct: u8 };
-pub const AuraNeedsApply = struct {};
+pub const AuraApplied = struct { slot: u8 };
+pub const AuraEffectDirty = struct {};
 
 // @root
 pub const Player = struct { session: *Session };

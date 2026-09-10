@@ -11,20 +11,19 @@ const c = @import("./EcsComponent.zig");
 
 const MapEcs = @import("MapEcs.zig").MapEcs;
 
-const log = std.log.scoped(.aura_system);
+const log = std.log.scoped(.aura_lifecycle_system);
 
-pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
-    const registry = &map_ecs.registry;
+pub fn runPre(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
+    var registry = &map_ecs.registry;
     var aura_slots = &map_ecs.state.aura_slots;
 
-    for (map_ecs.events.get(.aura_applied).items) |event| {
-        const aura_ent = event.aura_applied.aura;
+    for (map_ecs.events.get(.aura_apply_request).items) |event| {
+        const aura_ent = event.aura_apply_request[0];
         const aura = registry.getConst(c.Aura, aura_ent);
 
         // 1. Book keep the aura
         const aura_slot = aura_slots.addAuraForTarget(aura.owner, aura_ent) orelse continue;
-
-        registry.add(aura_ent, c.AuraNeedsApply{});
+        registry.add(aura_ent, c.AuraApplied{ .slot = aura_slot });
 
         // 2. Notify client
         const elapsed = registry.getConst(c.AuraDuration, aura_ent).elapsed;
@@ -39,31 +38,31 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
             .max_duration_ms = max_duration,
         };
         map_ecs.broadcast(.{ aura.owner, .{ .ignore_sender = false } }, packet);
-    }
-
-    var slows_to_apply_view = registry.view(.{ c.AuraNeedsApply, c.AuraMovementSlow, c.Aura }, .{});
-    var slows_to_apply_it = slows_to_apply_view.entityIterator();
-    while (slows_to_apply_it.next()) |slow_aura_ent| {
-        defer registry.remove(c.AuraNeedsApply, slow_aura_ent);
-        const aura = registry.getConst(c.Aura, slow_aura_ent);
-        const slow = registry.getConst(c.AuraMovementSlow, slow_aura_ent);
-        var owner_movement_speed = registry.get(c.MoveSpeed, aura.owner);
-        owner_movement_speed.run = c.BASE_RUN_SPEED * slow.pct;
-        // TODO: publish
+        map_ecs.addEvent(.{ .aura_applied = .{aura_ent} });
     }
 
     var aura_duration_view = registry.view(.{c.AuraDuration}, .{});
     var aura_duration_it = aura_duration_view.entityIterator();
     while (aura_duration_it.next()) |aura_duration_ent| {
         var duration = registry.get(c.AuraDuration, aura_duration_ent);
-        duration.elapsed -%= frame.dt;
+        duration.elapsed -|= frame.dt;
         if (duration.elapsed == 0) {
-            const aura = registry.getConst(c.Aura, aura_duration_ent);
-            const aura_owner_guid = registry.getConst(c.Guid, aura.owner).value;
-            const slot = aura_slots.removeAuraForTarget(aura.owner, aura_duration_ent) orelse unreachable;
-            map_ecs.broadcast(.{ aura.owner, .{ .ignore_sender = false } }, proto.spell.AuraUpdateServer.remove(aura_owner_guid, slot));
-            registry.destroy(aura_duration_ent);
+            map_ecs.addEvent(.{ .aura_destroyed = .{aura_duration_ent} });
         }
+    }
+}
+
+pub fn runPost(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
+    _ = frame;
+    var registry = &map_ecs.registry;
+    var aura_slots = &map_ecs.state.aura_slots;
+
+    for (map_ecs.events.get(.aura_destroyed).items) |event| {
+        const aura_entity_to_destroy = event.aura_destroyed[0];
+        const aura = registry.getConst(c.Aura, aura_entity_to_destroy);
+        const aura_owner_guid = registry.getConst(c.Guid, aura_entity_to_destroy).value;
+        const slot_freed = aura_slots.removeAuraForTarget(aura.owner, aura_entity_to_destroy) orelse unreachable;
+        map_ecs.broadcast(.{ aura.owner, .{ .ignore_sender = false } }, proto.spell.AuraUpdateServer.remove(aura_owner_guid, slot_freed));
     }
 }
 
@@ -76,6 +75,12 @@ pub const AuraSlots = struct {
     gpa: std.mem.Allocator,
 
     const Self = @This();
+
+    // TODO: how we should actually operate
+    // - migrate to a linked list approach
+    // - keep a track of occupied slot
+    // - periodically perform compaction
+    // - on compaction: use batch update packet
 
     pub fn init(gpa: std.mem.Allocator) Self {
         return .{

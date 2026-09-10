@@ -9,7 +9,6 @@ const protocol = @import("protocol");
 
 const component = @import("EcsComponent.zig");
 const MapEcs = @import("MapEcs.zig").MapEcs;
-const AuraSystem = @import("AuraSystem.zig");
 
 const log = std.log.scoped(.spell_system);
 
@@ -120,7 +119,7 @@ fn executeTargetedSpell(map_ecs: *MapEcs, frame: MapEcs.Frame, spell_cast_ent: e
                 });
                 registry.add(aura, component.AuraMovementSlow{ .pct = ms.pct });
                 registry.add(aura, component.AuraDuration{ .elapsed = ms.duration });
-                map_ecs.addEvent(.{ .aura_applied = .{ .aura = aura } });
+                map_ecs.addEvent(.{ .aura_apply_request = .{aura} });
             },
         }
     }
