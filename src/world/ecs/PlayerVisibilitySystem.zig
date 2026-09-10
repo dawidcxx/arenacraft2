@@ -18,6 +18,8 @@ pub fn run(map_ecs: *MapEcs, frame: MapEcs.Frame) !void {
     for (player_joined_events.items) |event| {
         const joining_player = event.player_joined.player;
         // Have the joining player obtain a initial visibility
+        // TODO: also stream each visible player's live auras to the joiner
+        // (SMSG_AURA_UPDATE_ALL per unit) — AuraSlots holds the truth.
         try syncPlayerVisibilities(map_ecs, frame, joining_player);
 
         // Update everyone elses view

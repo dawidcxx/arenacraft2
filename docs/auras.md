@@ -9,8 +9,15 @@ Verified against TrinityCore 3.3.5 branch (`SpellPackets.cpp`, `SpellAuras.cpp`)
 - Stack byte must never be 0 (client displays wrong) — send at least 1.
 - Visible aura slot space in the unit field block is 56; the client-side aura map limit is 255.
 
+## Server rules (AuraSystem/AuraQuery)
+
+- Slot window per unit: 56, append-only; frees tombstone, compaction at >= half tombstones renumbers slots and must be followed by SMSG_AURA_UPDATE_ALL to everyone.
+- Re-applying a live spell to a unit refreshes duration (no stacking slots, stacks byte stays 1).
+- Movement speed fold: greatest increase and greatest slow each win their sign class, then `base * best_inc * worst_slow` — order-free by construction. Max health fold: signed sum.
+- Immunity: any active `immune` effect with the school bit set rejects hostile applies and hostile spell impacts of that school (self-casts exempt).
+
 ## Speed
 
 - `SMSG_FORCE_RUN_SPEED_CHANGE`: `packedGuid, u32 moveEvent (0), u8 (2.1.0 padding, 0), f32 speed`. Send to everyone including the mover (`SendMessageToSet` self-inclusive).
 - The mover replies `CMSG_FORCE_RUN_SPEED_CHANGE_ACK`; a server that never validates movement may ignore it.
-- Base run speed is 7.0 yd/s (BASE_RUN_SPEED). Multiple slows stack multiplicatively.
+- Base run speed is 7.0 yd/s (BASE_RUN_SPEED).
